@@ -1,0 +1,14 @@
+Fixed Timestep size that steps through
+
+Scenario agnostic core
+
+
+ECS Inspired
+
+Data oriented design
+
+
+Build wide breadth low depth sim of the bat
+
+Need to decide on preprocess or live update
+

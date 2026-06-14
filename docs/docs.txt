@@ -1,0 +1,5 @@
+This folder will house the simulation documentation
+
+Equations outlined for each layer
+
+Details on running scenarios

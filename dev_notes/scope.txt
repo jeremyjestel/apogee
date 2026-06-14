@@ -1,0 +1,22 @@
+Goal is to create scenario based simulations with the end goal of seeing if given certain parameters a defensive missile will intercept an incoming missile
+
+
+Minimal UI, just enough to show the motion
+
+
+Missile is given a start point and end point it is travelling a trajectory, a missile interceptor is given 
+
+Should have at least one very deep feature for each layer, for example EKF for GNC, RDmap and CFAR for radar, jamming for EW, etc
+
+V1
+One incoming missile at constant velocity towards a defined point on ground, simple trajectory
+One interceptor starts on the ground somewhere and travels up to hit it out of the sky
+Maybe a ground radar tracking the missile mostly to define the noisy measurements being given
+Maybe a seeker in the interceptor
+
+The simulation itself should answer the question of whether an intercept will succeed and which factors contribute the most to that outcome potentially.
+
+
+Need just enough 6-dof to set a start and end and have it follow a trajectory.
+
+Gonna skip any really aerodynamic stuff at least visually and maybe just inclde it in the background code.
