@@ -1,0 +1,10 @@
+Layers containing modules all pulled together by core
+
+
+Not classes, components
+
+
+Need to decide on a coordinate system
+
+Folder hierarchy that has src documentation and c versus python
+

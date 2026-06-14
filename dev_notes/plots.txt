@@ -1,0 +1,1 @@
+Want to have a simple but detailed set of core line plots pop up after run as a dashboard to match the live UI

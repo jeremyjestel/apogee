@@ -1,0 +1,24 @@
+Code will be developed in VS Code or similar IDE and pushed to Git Repo
+
+Purpose of the repo is to store a professionally developed personal project
+
+Will work on a working branch until ready to merge into main
+
+Main should always have some form of updated documentation, will have to decide on a format for that
+
+CON_STANTS
+ClassName
+run_simulation()
+target_velocity
+
+
+Small scope each file
+
+Strong typing:
+NOT double angle
+DO Radians angle
+
+.txt files will be my personal notes, anything outward facing will intentionally be markdown
+
+All files will be professionally written from get go 
+

@@ -1,0 +1,10 @@
+Currently need to map out the structure of the code, scope of the project and stack Ill use for each to minimize redundant effort.
+
+
+Where will params be stored, how should those configs be organized.
+
+Must define data model design and all data structures
+
+need more info on coding standards and comments in c++
+
+Which things will have the highest 
