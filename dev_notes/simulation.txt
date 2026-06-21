@@ -11,4 +11,3 @@ Data oriented design
 Build wide breadth low depth sim of the bat
 
 Need to decide on preprocess or live update
-
