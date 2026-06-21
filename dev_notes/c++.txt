@@ -1,0 +1,7 @@
+
+.h is declaration for public use
+.ccp is the private implementation each object has access to
+
+.h and .cpp for every class
+.h only for structs just need to be declared
+

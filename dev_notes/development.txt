@@ -6,19 +6,33 @@ Will work on a working branch until ready to merge into main
 
 Main should always have some form of updated documentation, will have to decide on a format for that
 
+Naming standards:
 CON_STANTS
 ClassName
 run_simulation()
 target_velocity
+new_file.cpp
 
+Units in var name:
+velocity_mps
+acceleration_mps2
 
 Small scope each file
 
 Strong typing:
-NOT double angle
-DO Radians angle
+NOT: double angle
+DO: Radians angle
 
 .txt files will be my personal notes, anything outward facing will intentionally be markdown
 
 All files will be professionally written from get go 
 
+Descriptive variables maximizing readability, common acronyms fine
+
+Struct used for grouping like data, class for behavior/actions
+
+core is structs
+entities is classes
+dynamics is functions and transformations
+simulation is orchestration
+ 
