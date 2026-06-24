@@ -5,3 +5,8 @@
 .h and .cpp for every class
 .h only for structs just need to be declared
 
+build step
+cmake -S . -B build
+cmake --build build
+
+creates apogee.pyd and should be next to main.py
