@@ -1,0 +1,17 @@
+name: apogee
+
+channels:
+  - conda-forge
+
+dependencies:
+  - python=3.12
+  - cmake
+  - ninja
+  - pybind11
+  - numpy
+  - pandas
+  - matplotlib
+  - scipy
+  - pytest
+  - jupyterlab
+  - pip
