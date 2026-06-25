@@ -1,26 +1,24 @@
+// bindings.cpp
 #include <pybind11/pybind11.h>
-#include <string>
+#include "params.hpp"
+
+// forward from params_conversion.cpp
+Params params_from_dict(const py::dict&);
 
 namespace py = pybind11;
 
-// simple struct just for transport
-struct Params {
-    double dt;
-    double t_end;
-};
+static std::string run_ack_from_mapping(py::object mapping) {
+    py::dict d;
+    if (py::isinstance<py::dict>(mapping)) d = mapping.cast<py::dict>();
+    else if (py::hasattr(mapping, "__dict__")) d = mapping.attr("__dict__").cast<py::dict>();
+    else throw std::runtime_error("Expected mapping or object with __dict__");
 
-std::string run_ack(const Params& p) {
-    return "ACK: received params (dt=" +
-           std::to_string(p.dt) +
-           ", t_end=" +
-           std::to_string(p.t_end) + ")";
+    Params p = params_from_dict(d);
+    return run_ack(p); // call your C++ run_ack implementation
 }
 
 PYBIND11_MODULE(apogee, m) {
-    py::class_<Params>(m, "Params")
-        .def(py::init<>())
-        .def_readwrite("dt", &Params::dt)
-        .def_readwrite("t_end", &Params::t_end);
-
-    m.def("run_ack", &run_ack);
+    m.def("run_ack", &run_ack_from_mapping, "Run ack from a mapping or dataclass");
+    // optional: expose Params to Python if you want
+    py::class_<Params>(m, "Params").def(py::init<>());
 }

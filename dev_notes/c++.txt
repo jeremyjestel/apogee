@@ -9,4 +9,7 @@ build step
 cmake -S . -B build
 cmake --build build
 
-creates apogee.pyd and should be next to main.py
+creates apogee.pyd and must be copied next to main.py
+
+
+Really not sure why the .inc cant be seen
