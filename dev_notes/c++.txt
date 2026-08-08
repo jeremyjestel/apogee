@@ -1,9 +1,13 @@
 
+Performance of calculations will be done by C++ entirely, python will provide the parameters and plot the results with ease of use
+
 .h is declaration for public use
 .ccp is the private implementation each object has access to
 
 .h and .cpp for every class
 .h only for structs just need to be declared
+
+Anything housing data should be a struct, anything housing behavior or system should be a class
 
 build step
 cmake -S . -B build
@@ -11,5 +15,4 @@ cmake --build build
 
 creates apogee.pyd and must be copied next to main.py
 
-
-Really not sure why the .inc cant be seen
+Need to build c++ to run the main.py

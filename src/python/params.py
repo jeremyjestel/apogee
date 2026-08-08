@@ -1,6 +1,7 @@
-from dataclasses import dataclass
+import apogee
 
-@dataclass
-class Params:
-    dt: float = 0.01
-    t_end: float = 10.0
+def create_params():
+    params = apogee.Params()
+    params.missile.mass_kg = 1000.0 #adjusts the defaults
+
+    return params

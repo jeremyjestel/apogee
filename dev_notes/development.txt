@@ -13,6 +13,8 @@ run_simulation()
 target_velocity
 new_file.cpp
 
+car_wheel_color <- order common category to attribute for autocomplete
+
 Units in var name:
 velocity_mps
 acceleration_mps2
