@@ -8,10 +8,17 @@ find_package(pybind11 CONFIG REQUIRED)
 
 pybind11_add_module(apogee
     src/cpp/bindings.cpp
-    src/cpp/params_conversion.cpp
-    # add other .cpp sources here as needed
+    src/cpp/rre.cpp
+    src/cpp/run_simulation.cpp
 )
 
-# make the compiler find params.hpp and params_fields.inc
+# Make the compiler find the public simulation headers.
 target_include_directories(apogee PRIVATE "${CMAKE_SOURCE_DIR}/src/cpp")
+
+target_compile_features(apogee PRIVATE cxx_std_17)
+
+if(MSVC)
+    # Serialize access to compiler PDB files during parallel builds.
+    target_compile_options(apogee PRIVATE /FS)
+endif()
 
