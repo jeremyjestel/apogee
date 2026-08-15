@@ -16,3 +16,10 @@ Debug tips:
 Plot each variable to see if expected
 Comment each section
 
+Going to sim everything as 3 degrees of freedom earth agnostic in a 3d cartesian frame. 
+V1 will use the blue sattelite as the reference frame of 0,0,0.
+
+Will be able to set the starting position, velocity, and acceleration of each object in the scene
+Measure distances in m, m/s, m/s^2
+
+Goal is to place into the scene and each entity has a team

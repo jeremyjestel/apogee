@@ -14,7 +14,5 @@ def add_apogee_build_to_path():
             return
 
     raise ModuleNotFoundError(
-        "The compiled apogee module was not found. Build it with "
-        "'cmake --build build --config Debug' or "
-        "'cmake --build build --config Release'."
+        "The compiled apogee module was not found."
     )

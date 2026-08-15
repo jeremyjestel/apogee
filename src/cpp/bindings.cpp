@@ -2,7 +2,7 @@
 #include <pybind11/stl.h>
 
 #include "params.hpp"
-#include "run_simulation.hpp"
+#include "run_sim.hpp"
 
 namespace py = pybind11;
 
@@ -59,7 +59,7 @@ PYBIND11_MODULE(apogee, m)
 
     m.def(
         "run_sim",
-        &run_simulation,
+        &run_sim,
         py::arg("params"),
         "Run the simulation with the given parameters."
     );

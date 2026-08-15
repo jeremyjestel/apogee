@@ -1,5 +1,18 @@
 Goal is to create scenario based simulations with the end goal of seeing if given certain parameters a defensive missile will intercept an incoming missile
 
+Splitting into Analysis of systems and Simulation of Scenarios with those systems
+
+Simulation is wargaming with a blue and red team, all variables manipulable
+
+Red wins if sattelite is destroyed
+Blue wins if intercepts missile
+
+For now only one of each system in the scene but more in future
+
+Missile launched on course for sattelite location
+Ground radar detects and tracks missile
+
+
 This leaves room to add any number of systems doing any number of things
 
 Minimal UI, just enough to show the motion
