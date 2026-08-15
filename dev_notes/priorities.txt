@@ -1,0 +1,22 @@
+The purpose of APOGEE is to build a product that includes these:
+
+Extended Kalman Filtering
+Range-Doppler Processing
+6-DOF Vehicle Dynamics
+Proportional Navigation Guidance
+Radar Measurement Modeling
+Multi-Target Data Association
+Attitude Determination and Control
+Orbital Dynamics
+Monte Carlo Analysis
+Multi-Sensor Fusion
+CFAR Detection
+Missile Autopilot Control
+LQR Optimal Control
+Trajectory Optimization
+Radar Propagation Modeling
+Electronic Warfare Modeling
+Coordinate Frame Transformations
+Datalink Latency Modeling
+System Identification
+Sensor Error Modeling
