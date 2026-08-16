@@ -6,13 +6,11 @@ Result run_sim(const Params& p)
 {
     Result result;
 
-    double t = 0.0;
-    double x = 0.0;
+    // Run the simulation functions
+    auto packaged_rre = compute_rre(p.radar);
 
-
-    auto [ranges_m, snr_db] = compute_rre(p.radar);
-
-    
+    // Add the analysis to the result
+    result.analysis_2d.push_back(packaged_rre);
 
     return result;
 }

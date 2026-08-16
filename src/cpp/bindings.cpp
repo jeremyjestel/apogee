@@ -3,6 +3,8 @@
 
 #include "params.hpp"
 #include "run_sim.hpp"
+#include "result.hpp"
+#include "state.hpp"
 
 namespace py = pybind11;
 
@@ -21,7 +23,7 @@ PYBIND11_MODULE(apogee, m)
         .def_readwrite("noise_figure_db", &RadarParams::noise_figure_db)
         .def_readwrite("bandwidth_hz", &RadarParams::bandwidth_hz)
         .def_readwrite("system_loss_db", &RadarParams::system_loss_db)
-        .def_readwrite("max_range_m", &RadarParams::max_range_m);
+        .def_readwrite("max_range_m", &RadarParams::max_range_m)
         .def_readwrite("range_step_m", &RadarParams::range_step_m);
 
     py::class_<InterceptorParams>(m, "InterceptorParams")
@@ -48,14 +50,48 @@ PYBIND11_MODULE(apogee, m)
         .def_readwrite("interceptor", &Params::interceptor)
         .def_readwrite("missile", &Params::missile);
 
+    py::class_<Vec3>(m, "Vec3")
+        .def(py::init<>())
+        .def_readwrite("x", &Vec3::x)
+        .def_readwrite("y", &Vec3::y)
+        .def_readwrite("z", &Vec3::z);
+
     py::class_<State>(m, "State")
-        .def_readonly("time_s", &State::time_s)
-        .def_readonly("x", &State::x);
+        .def(py::init<>())
+        .def_readwrite("position_m", &State::position_m)
+        .def_readwrite("velocity_mps", &State::velocity_mps)
+        .def_readwrite("acceleration_mps2", &State::acceleration_mps2);
+
+    py::class_<DataSeries>(m, "DataSeries")
+        .def(py::init<>())
+        .def_readwrite("name", &DataSeries::name)
+        .def_readwrite("unit", &DataSeries::unit)
+        .def_readwrite("values", &DataSeries::values);
+
+    py::class_<SimulationData>(m, "SimulationData")
+        .def(py::init<>())
+        .def_readwrite("name", &SimulationData::name)
+        .def_readwrite("times_s", &SimulationData::times_s)
+        .def_readwrite("outputs", &SimulationData::outputs);
+
+    py::class_<Analysis2D>(m, "Analysis2D")
+        .def(py::init<>())
+        .def_readwrite("name", &Analysis2D::name)
+        .def_readwrite("x", &Analysis2D::x)
+        .def_readwrite("y", &Analysis2D::y);
+
+    py::class_<Analysis3D>(m, "Analysis3D")
+        .def(py::init<>())
+        .def_readwrite("name", &Analysis3D::name)
+        .def_readwrite("x", &Analysis3D::x)
+        .def_readwrite("y", &Analysis3D::y)
+        .def_readwrite("z", &Analysis3D::z);
 
     py::class_<Result>(m, "Result")
-        .def_readonly("history", &Result::history)
-        .def_readonly("ranges_m", &Result::ranges_m)
-        .def_readonly("snr_db", &Result::snr_db);
+        .def(py::init<>())
+        .def_readwrite("simulation", &Result::simulation)
+        .def_readwrite("analysis_2d", &Result::analysis_2d)
+        .def_readwrite("analysis_3d", &Result::analysis_3d);
 
     m.def(
         "run_sim",

@@ -25,6 +25,7 @@ struct Analysis2D
     std::vector<DataSeries> y;
 };
 
+// for 3d data
 struct Analysis3D
 {
     std::string name;
