@@ -2,12 +2,13 @@
 
 #include <vector>
 #include <cmath>
-
+#include <string>
 
 #include "params.hpp"
+#include "result.hpp"
 constexpr double BOLTZMANN_CONSTANT = 1.380649e-23;
 
-std::pair<std::vector<double>, std::vector<double>> compute_rre(const RadarParams& radar)
+Analysis2D compute_rre(const RadarParams& radar)
 {   
     std::vector<double> ranges_m;
     std::vector<double> snr_db;
@@ -26,5 +27,21 @@ std::pair<std::vector<double>, std::vector<double>> compute_rre(const RadarParam
         snr_db.push_back(snr);
     }
 
-    return {ranges_m, snr_db};
+    Analysis2D packaged_rre{
+        .name = "SNR vs Range",
+        .x = {
+            .name = "Range",
+            .unit = "m",
+            .values = ranges_m
+        },
+        .y = {
+            {
+                .name = "SNR",
+                .unit = "dB",
+                .values = snr_db
+            }
+        }
+    };
+
+    return packaged_rre;
 }
