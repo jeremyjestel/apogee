@@ -3,7 +3,7 @@ from add_build_to_path import add_apogee_build_to_path
 add_apogee_build_to_path()
 
 import apogee # type: ignore
-from params import create_params
+from cpp.parameter.params import create_params
 import matplotlib.pyplot as plt
 import numpy as np
 from plot_result import plot_result

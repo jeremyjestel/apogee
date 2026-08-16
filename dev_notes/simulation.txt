@@ -23,3 +23,17 @@ Will be able to set the starting position, velocity, and acceleration of each ob
 Measure distances in m, m/s, m/s^2
 
 Goal is to place into the scene and each entity has a team
+
+I want to have objects with static analysis of each
+Simulation for the interaction of each in time
+
+core/
+    World: owns entities and associates IDs with components
+components/
+    Definitions of KinematicState, RadarComponent, etc.
+archetypes/
+    Functions that create an ID and assign a standard set of components
+systems/
+    Processes entities possessing particular components
+math/
+    Reusable types such as Vec3

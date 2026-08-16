@@ -58,9 +58,9 @@ PYBIND11_MODULE(apogee, m)
 
     py::class_<State>(m, "State")
         .def(py::init<>())
-        .def_readwrite("position_m", &State::position_m)
-        .def_readwrite("velocity_mps", &State::velocity_mps)
-        .def_readwrite("acceleration_mps2", &State::acceleration_mps2);
+        .def_readwrite("pos_m", &State::pos_m)
+        .def_readwrite("vel_mps", &State::vel_mps)
+        .def_readwrite("accel_mps2", &State::accel_mps2);
 
     py::class_<DataSeries>(m, "DataSeries")
         .def(py::init<>())
