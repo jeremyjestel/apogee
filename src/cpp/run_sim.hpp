@@ -3,7 +3,7 @@
 #include <vector>
 
 #include "params.hpp"
-#include "result.hpp"
+#include "parameter/result.hpp"
 
 
 Result run_sim(const Params& params);
