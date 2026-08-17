@@ -3,8 +3,6 @@ import math
 import matplotlib.pyplot as plt
 
 
-#May have to update for color plots but fine for now
-
 MAX_SUBPLOT_COLUMNS = 3
 
 
@@ -27,91 +25,160 @@ def _validate_lengths(context, **series):
         raise ValueError(f"{context} contains mismatched series lengths: {details}")
 
 
-def _plot_simulation(simulation):
-    outputs = list(simulation.outputs)
-    if not outputs:
-        return None
+def _group_by_entity(outputs):
+    grouped_outputs = {}
+    for output in outputs:
+        entity_name = output.entity_name or "Unnamed Entity"
+        grouped_outputs.setdefault(entity_name, []).append(output)
+    return grouped_outputs
 
-    rows, columns = _subplot_shape(len(outputs))
-    figure, axes = plt.subplots(
-        rows,
-        columns,
-        figsize=(7 * columns, 4 * rows),
-        squeeze=False,
-    )
 
-    times_s = list(simulation.times_s)
-    for axis, output in zip(axes.flat, outputs):
-        values = list(output.values)
-        _validate_lengths(
-            f"Simulation output '{output.name}'",
-            times_s=times_s,
-            values=values,
-        )
+def _set_window_title(figure, title):
+    manager = figure.canvas.manager
+    if manager is not None:
+        manager.set_window_title(title)
 
-        axis.plot(times_s, values)
-        axis.set_title(output.name)
-        axis.set_xlabel("Time (s)")
-        axis.set_ylabel(_axis_label(output.name, output.unit))
-        axis.grid(True)
 
-    for unused_axis in list(axes.flat)[len(outputs):]:
+def _maximize_window(figure):
+    manager = figure.canvas.manager
+    if manager is None or not hasattr(manager, "window"):
+        return
+
+    window = manager.window
+    if hasattr(window, "showMaximized"):
+        window.showMaximized()
+    elif hasattr(window, "state"):
+        window.state("zoomed")
+    elif hasattr(window, "Maximize"):
+        window.Maximize(True)
+
+
+def _hide_unused_axes(axes, used_count):
+    for unused_axis in list(axes.flat)[used_count:]:
         unused_axis.set_visible(False)
 
-    figure.suptitle(simulation.name or "Simulation Data")
-    figure.tight_layout()
-    return figure
+
+def _plot_simulation_2d(simulation):
+    figures = []
+    times_s = list(simulation.times_s)
+
+    for entity_name, outputs in _group_by_entity(simulation.outputs).items():
+        rows, columns = _subplot_shape(len(outputs))
+        figure, axes = plt.subplots(
+            rows,
+            columns,
+            figsize=(7 * columns, 4 * rows),
+            squeeze=False,
+        )
+
+        for axis, output in zip(axes.flat, outputs):
+            values = list(output.values)
+            _validate_lengths(
+                f"2D simulation output '{entity_name} / {output.name}'",
+                times_s=times_s,
+                values=values,
+            )
+
+            axis.plot(times_s, values)
+            axis.set_title(output.name)
+            axis.set_xlabel("Time (s)")
+            axis.set_ylabel(_axis_label(output.name, output.unit))
+            axis.grid(True)
+
+        _hide_unused_axes(axes, len(outputs))
+        title = f"{simulation.name} - {entity_name}" if simulation.name else entity_name
+        _set_window_title(figure, title)
+        figure.suptitle(title)
+        figure.tight_layout()
+        _maximize_window(figure)
+        figures.append(figure)
+
+    return figures
+
+
+def _plot_simulation_3d(simulation):
+    figures = []
+    times_s = list(simulation.times_s)
+
+    for entity_name, outputs in _group_by_entity(simulation.outputs).items():
+        rows, columns = _subplot_shape(len(outputs))
+        figure = plt.figure(figsize=(7 * columns, 5 * rows))
+
+        for index, output in enumerate(outputs, start=1):
+            x_values = list(output.x)
+            y_values = list(output.y)
+            z_values = list(output.z)
+            _validate_lengths(
+                f"3D simulation output '{entity_name} / {output.name}'",
+                times_s=times_s,
+                x=x_values,
+                y=y_values,
+                z=z_values,
+            )
+
+            axis = figure.add_subplot(rows, columns, index, projection="3d")
+            axis.plot(x_values, y_values, z_values)
+            axis.set_title(output.name)
+            axis.set_xlabel(_axis_label("X", output.unit))
+            axis.set_ylabel(_axis_label("Y", output.unit))
+            axis.set_zlabel(_axis_label("Z", output.unit))
+
+        title = f"{simulation.name} - {entity_name}" if simulation.name else entity_name
+        _set_window_title(figure, title)
+        figure.suptitle(title)
+        figure.tight_layout()
+        _maximize_window(figure)
+        figures.append(figure)
+
+    return figures
 
 
 def _plot_analyses_2d(analyses):
-    plots = [
-        (analysis, y_series)
-        for analysis in analyses
-        for y_series in analysis.y
-    ]
-    if not plots:
-        return None
+    figures = []
 
-    rows, columns = _subplot_shape(len(plots))
-    figure, axes = plt.subplots(
-        rows,
-        columns,
-        figsize=(7 * columns, 4 * rows),
-        squeeze=False,
-    )
+    for analysis in analyses:
+        y_series_collection = list(analysis.y)
+        if not y_series_collection:
+            continue
 
-    for axis, (analysis, y_series) in zip(axes.flat, plots):
-        x_values = list(analysis.x.values)
-        y_values = list(y_series.values)
-        _validate_lengths(
-            f"2D analysis '{analysis.name}' / '{y_series.name}'",
-            x=x_values,
-            y=y_values,
+        rows, columns = _subplot_shape(len(y_series_collection))
+        figure, axes = plt.subplots(
+            rows,
+            columns,
+            figsize=(7 * columns, 4 * rows),
+            squeeze=False,
         )
 
-        axis.plot(x_values, y_values)
-        axis.set_title(analysis.name or y_series.name)
-        axis.set_xlabel(_axis_label(analysis.x.name, analysis.x.unit))
-        axis.set_ylabel(_axis_label(y_series.name, y_series.unit))
-        axis.grid(True)
+        for axis, y_series in zip(axes.flat, y_series_collection):
+            x_values = list(analysis.x.values)
+            y_values = list(y_series.values)
+            _validate_lengths(
+                f"2D analysis '{analysis.name}' / '{y_series.name}'",
+                x=x_values,
+                y=y_values,
+            )
 
-    for unused_axis in list(axes.flat)[len(plots):]:
-        unused_axis.set_visible(False)
+            axis.plot(x_values, y_values)
+            axis.set_title(y_series.name)
+            axis.set_xlabel(_axis_label(analysis.x.name, analysis.x.unit))
+            axis.set_ylabel(_axis_label(y_series.name, y_series.unit))
+            axis.grid(True)
 
-    figure.suptitle("2D Analysis")
-    figure.tight_layout()
-    return figure
+        _hide_unused_axes(axes, len(y_series_collection))
+        title = analysis.name or "2D Analysis"
+        _set_window_title(figure, title)
+        figure.suptitle(title)
+        figure.tight_layout()
+        _maximize_window(figure)
+        figures.append(figure)
+
+    return figures
 
 
 def _plot_analyses_3d(analyses):
-    analyses = list(analyses)
-    if not analyses:
-        return None
+    figures = []
 
-    rows, columns = _subplot_shape(len(analyses))
-    figure = plt.figure(figsize=(7 * columns, 5 * rows))
-
-    for index, analysis in enumerate(analyses, start=1):
+    for analysis in analyses:
         x_values = list(analysis.x.values)
         y_values = list(analysis.y.values)
         z_values = list(analysis.z.values)
@@ -122,26 +189,30 @@ def _plot_analyses_3d(analyses):
             z=z_values,
         )
 
-        axis = figure.add_subplot(rows, columns, index, projection="3d")
+        figure = plt.figure(figsize=(7, 5))
+        axis = figure.add_subplot(1, 1, 1, projection="3d")
         axis.scatter(x_values, y_values, z_values)
-        axis.set_title(analysis.name)
         axis.set_xlabel(_axis_label(analysis.x.name, analysis.x.unit))
         axis.set_ylabel(_axis_label(analysis.y.name, analysis.y.unit))
         axis.set_zlabel(_axis_label(analysis.z.name, analysis.z.unit))
 
-    figure.suptitle("3D Analysis")
-    figure.tight_layout()
-    return figure
+        title = analysis.name or "3D Analysis"
+        axis.set_title(title)
+        _set_window_title(figure, title)
+        figure.tight_layout()
+        _maximize_window(figure)
+        figures.append(figure)
+
+    return figures
 
 
 def plot_result(result):
-    """Plot every populated section of an Apogee Result."""
-    figures = [
-        _plot_simulation(result.simulation),
-        _plot_analyses_2d(result.analysis_2d),
-        _plot_analyses_3d(result.analysis_3d),
-    ]
-    figures = [figure for figure in figures if figure is not None]
+    """Create separate figures for each simulated entity and analysis result."""
+    figures = []
+    figures.extend(_plot_simulation_2d(result.simulation_2d))
+    figures.extend(_plot_simulation_3d(result.simulation_3d))
+    figures.extend(_plot_analyses_2d(result.analysis_2d))
+    figures.extend(_plot_analyses_3d(result.analysis_3d))
 
     if figures:
         plt.show()

@@ -16,7 +16,9 @@ Debug tips:
 Plot each variable to see if expected
 Comment each section
 
-Going to sim everything as 3 degrees of freedom earth agnostic in a 3d cartesian frame. 
+Going to sim everything as 3 degrees of freedom earth agnostic in a global ECI.
+If need Earth rotation, can convert to ECEF with time 
+Anything that needs can be converted to local ENU with diff frames of reference
 V1 will use the blue sattelite as the reference frame of 0,0,0.
 
 Will be able to set the starting position, velocity, and acceleration of each object in the scene

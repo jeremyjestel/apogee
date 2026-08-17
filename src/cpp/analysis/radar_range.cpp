@@ -1,14 +1,14 @@
-#include "rre.hpp"
+#include "analysis/radar_range.hpp"
 
 #include <vector>
 #include <cmath>
 #include <string>
 
 #include "params.hpp"
-#include "result.hpp"
+#include "parameter/result.hpp"
 constexpr double BOLTZMANN_CONSTANT = 1.380649e-23;
 
-Analysis2D compute_radar_range(const RadarParams& radar)
+Analysis2D compute_radar_range(const BlueRadarParams& radar)
 {   
     std::vector<double> ranges_m;
     std::vector<double> snr_db;
