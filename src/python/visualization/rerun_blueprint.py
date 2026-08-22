@@ -96,6 +96,7 @@ def _analysis_container(result, entities, axes):
                     origin=path,
                     contents=[path],
                     name=f"{view_name} [{_axis_label(axis)}]",
+                    background=[244, 246, 248],
                 )
             )
         else:

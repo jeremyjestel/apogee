@@ -4,7 +4,7 @@
 #include <vector>
 
 #include "core/entity.hpp"
-#include "parameter/result.hpp"
+#include "core/result.hpp"
 
 void initialize_entity_state_logging(
     const std::vector<Entity>& entities,

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "params.hpp"
-#include "parameter/result.hpp"
+#include "core/result.hpp"
 
 void append_radar_range_analysis(
     const BlueRadarParams& radar,

@@ -2,7 +2,7 @@
 
 #include <string>
 
-#include "components/kinematic_state.hpp"
+#include "core/kinematic_state.hpp"
 
 struct SimulationParams
 {

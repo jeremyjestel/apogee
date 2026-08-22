@@ -10,7 +10,7 @@
 #include <vector>
 
 #include "params.hpp"
-#include "parameter/result.hpp"
+#include "core/result.hpp"
 constexpr double BOLTZMANN_CONSTANT = 1.380649e-23;
 
 void append_radar_range_analysis(
@@ -60,6 +60,7 @@ void append_radar_range_analysis(
     }
 
     std::vector<double> ranges_m;
+    std::vector<double> ranges_km;
     std::vector<double> snr_db;
 
     const double sample_count_value = std::floor(
@@ -75,12 +76,14 @@ void append_radar_range_analysis(
 
     const std::size_t sample_count = static_cast<std::size_t>(sample_count_value);
     ranges_m.reserve(sample_count);
+    ranges_km.reserve(sample_count);
     snr_db.reserve(sample_count);
 
     for (std::size_t index = 1; index <= sample_count; ++index)
     {
         const double range_m = static_cast<double>(index) * radar.range_step_m;
         ranges_m.push_back(range_m);
+        ranges_km.push_back(range_m / 1000.0);
         
         const double numerator =
             radar.power_dbw + radar.tx_gain_db + radar.rx_gain_db +
@@ -109,9 +112,9 @@ void append_radar_range_analysis(
     result.axes.push_back(Axis{
         .key = axis_key,
         .name = "Range",
-        .unit = "m",
+        .unit = "km",
         .kind = "continuous",
-        .values = std::move(ranges_m)
+        .values = std::move(ranges_km)
     });
     result.scalars.push_back(ScalarSeries{
         .entity_id = entity_id,

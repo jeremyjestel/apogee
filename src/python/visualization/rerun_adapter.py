@@ -7,6 +7,7 @@ os.environ.setdefault("WGPU_BACKEND", "gl")
 import numpy as np
 import rerun as rr
 
+from .chart_renderer import render_xy_chart
 from .rerun_blueprint import build_blueprint
 from .rerun_paths import (
     analysis_grid,
@@ -426,17 +427,18 @@ def _log_scalar_series(recording, result, entities, axes):
 
         if axis.kind == "continuous":
             if len(values) > 0:
-                points = np.column_stack(
-                    (np.asarray(axis.values, dtype=np.float64), values)
+                chart = render_xy_chart(
+                    axis.values,
+                    values,
+                    x_name=axis.name,
+                    x_unit=axis.unit,
+                    y_name=series.name,
+                    y_unit=series.unit,
+                    color=color,
                 )
                 recording.log(
                     path,
-                    rr.LineStrips2D(
-                        [points],
-                        colors=[color],
-                        radii=rr.Radius.ui_points(2.0),
-                        labels=[series.name],
-                    ),
+                    rr.Image(chart),
                     static=True,
                     strict=True,
                 )

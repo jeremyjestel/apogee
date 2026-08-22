@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-#include "math/vec3.hpp"
+#include "core/vec3.hpp"
 
 
 struct EntityDescriptor

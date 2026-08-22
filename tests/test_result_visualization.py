@@ -7,6 +7,7 @@ from plot_result import plot_result
 from rerun_integration import show_in_rerun
 from visualization import log_result, save_result
 from visualization import show_result
+from visualization.chart_renderer import render_xy_chart
 
 
 @pytest.fixture(scope="module")
@@ -71,6 +72,28 @@ def _vector(x, y, z):
 def test_legacy_entry_points_use_the_single_rerun_pipeline():
     assert plot_result is show_result
     assert show_in_rerun is show_result
+
+
+def test_continuous_analysis_chart_is_readable_and_not_flat():
+    image = render_xy_chart(
+        [10.0, 1000.0, 5000.0, 10000.0],
+        [90.0, 45.0, 20.0, -15.0],
+        x_name="Range",
+        x_unit="m",
+        y_name="SNR",
+        y_unit="dB",
+        color=[40, 110, 255],
+    )
+
+    assert image.shape == (495, 880, 3)
+    assert image.dtype == np.uint8
+    assert image.mean() > 150.0
+    assert image.std() > 20.0
+    line_color_distance = np.linalg.norm(
+        image.astype(np.int16) - np.asarray([40, 110, 255], dtype=np.int16),
+        axis=2,
+    )
+    assert np.count_nonzero(line_color_distance < 20.0) > 100
 
 
 def test_real_result_contract_is_unique_aligned_and_finite(simulation_result):
