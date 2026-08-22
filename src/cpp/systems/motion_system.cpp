@@ -1,6 +1,5 @@
 #include "motion_system.hpp"
 
-
 void kinematic_update(Entity& entity, double dt_s)
 {
     entity.kinematics.pos_m.x += entity.kinematics.vel_mps.x * dt_s;

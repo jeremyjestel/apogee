@@ -17,26 +17,23 @@ APOGEE: Multi-Domain Simulation Framework
 - [bindings.cpp](C:/Users/jerem/OneDrive/Documents/apogee/src/cpp/bindings.cpp) exposes the C++ parameter, state, result, and simulation types to Python through pybind11.
 - [logging.hpp](C:/Users/jerem/OneDrive/Documents/apogee/src/cpp/logging.hpp) declares the functions that initialize and append entity state data to a result.
 - [logging.cpp](C:/Users/jerem/OneDrive/Documents/apogee/src/cpp/logging.cpp) creates entity result series and records position, velocity, acceleration, and speed at every timestep.
-- [app.exe](C:/Users/jerem/OneDrive/Documents/apogee/src/cpp/app.exe) is a compiled executable artifact rather than editable source code.
 
 ### C++ core and data types
 
 - [entity.hpp](C:/Users/jerem/OneDrive/Documents/apogee/src/cpp/core/entity.hpp) defines an internal simulation entity with its identity, classification, team, and kinematic state.
-- [kinematic_state.hpp](C:/Users/jerem/OneDrive/Documents/apogee/src/cpp/components/kinematic_state.hpp) groups an entity’s position, velocity, and acceleration vectors.
-- [vec3.hpp](C:/Users/jerem/OneDrive/Documents/apogee/src/cpp/math/vec3.hpp) defines the reusable three-component Cartesian vector type.
-- [result.hpp](C:/Users/jerem/OneDrive/Documents/apogee/src/cpp/parameter/result.hpp) defines the renderer-neutral entities, axes, scalar series, vector series, grids, and overall simulation result.
+- [kinematic_state.hpp](C:/Users/jerem/OneDrive/Documents/apogee/src/cpp/core/kinematic_state.hpp) groups an entity’s position, velocity, and acceleration vectors.
+- [vec3.hpp](C:/Users/jerem/OneDrive/Documents/apogee/src/cpp/core/vec3.hpp) defines the reusable three-component Cartesian vector type.
+- [result.hpp](C:/Users/jerem/OneDrive/Documents/apogee/src/cpp/core/result.hpp) defines the renderer-neutral entities, axes, scalar series, vector series, grids, and overall simulation result.
 
 ### C++ systems
 
 - [motion_system.hpp](C:/Users/jerem/OneDrive/Documents/apogee/src/cpp/systems/motion_system.hpp) declares the function that advances an entity’s kinematic state.
 - [motion_system.cpp](C:/Users/jerem/OneDrive/Documents/apogee/src/cpp/systems/motion_system.cpp) updates position from velocity and velocity from acceleration over a timestep.
-- [radar_system.hpp](C:/Users/jerem/OneDrive/Documents/apogee/src/cpp/systems/radar_system.hpp) is currently an empty placeholder for future timestep-based radar behavior.
-- [radar_system.cpp](C:/Users/jerem/OneDrive/Documents/apogee/src/cpp/systems/radar_system.cpp) is currently an empty implementation placeholder for the radar system.
 
 ### C++ analyses
 
 - [radar_range.hpp](C:/Users/jerem/OneDrive/Documents/apogee/src/cpp/analysis/radar_range.hpp) declares the radar SNR-versus-range analysis function.
-- [radar_range.cpp](C:/Users/jerem/OneDrive/Documents/apogee/src/cpp/analysis/radar_range.cpp) calculates finite SNR samples over range and appends the resulting axis and scalar series to `Result`.
+- [radar_range.cpp](C:/Users/jerem/OneDrive/Documents/apogee/src/cpp/analysis/radar_range.cpp) calculates SNR samples over range and appends the resulting axis and scalar series to `Result`.
 
 ### Python execution
 
@@ -45,12 +42,11 @@ APOGEE: Multi-Domain Simulation Framework
 - [add_build_to_path.py](C:/Users/jerem/OneDrive/Documents/apogee/src/python/add_build_to_path.py) finds the selected compiled extension and rejects missing, incompatible, or stale C++ builds.
 - [plot_result.py](C:/Users/jerem/OneDrive/Documents/apogee/src/python/plot_result.py) preserves the old `plot_result` import while redirecting it to the unified Rerun visualization pipeline.
 - [rerun_integration.py](C:/Users/jerem/OneDrive/Documents/apogee/src/python/rerun_integration.py) preserves the older `show_in_rerun` import as another compatibility alias.
-- [test.py](C:/Users/jerem/OneDrive/Documents/apogee/src/python/test.py) is an obsolete diagnostic script for the removed `params_fields.inc` mechanism and is not part of the current test suite.
 
 ### Python visualization
 
 - [visualization/\_\_init\_\_.py](C:/Users/jerem/OneDrive/Documents/apogee/src/python/visualization/__init__.py) exports the public `log_result`, `show_result`, and `save_result` visualization functions.
-- [rerun_adapter.py](C:/Users/jerem/OneDrive/Documents/apogee/src/python/visualization/rerun_adapter.py) validates results and converts entities, trajectories, telemetry, analyses, and grids into Rerun data.
+- [rerun_adapter.py](C:/Users/jerem/OneDrive/Documents/apogee/src/python/visualization/rerun_adapter.py) converts entities, trajectories, telemetry, analyses, and grids into Rerun data.
 - [rerun_blueprint.py](C:/Users/jerem/OneDrive/Documents/apogee/src/python/visualization/rerun_blueprint.py) dynamically creates the Scenario, Telemetry, and per-entity Analysis tabs in the Rerun UI.
 - [rerun_paths.py](C:/Users/jerem/OneDrive/Documents/apogee/src/python/visualization/rerun_paths.py) generates stable Rerun entity paths from entity, system, and quantity keys.
 - [chart_renderer.py](C:/Users/jerem/OneDrive/Documents/apogee/src/python/visualization/chart_renderer.py) renders continuous XY analyses as labeled scientific chart images with independently scaled axes.
@@ -58,7 +54,7 @@ APOGEE: Multi-Domain Simulation Framework
 ### Tests
 
 - [tests/conftest.py](C:/Users/jerem/OneDrive/Documents/apogee/tests/conftest.py) configures pytest to load the current Release build of the C++ extension.
-- [test_result_visualization.py](C:/Users/jerem/OneDrive/Documents/apogee/tests/test_result_visualization.py) tests the result contract, validation failures, Rerun serialization, grids, 3D analyses, chart readability, and `.rrd` saving.
+- [test_result_visualization.py](C:/Users/jerem/OneDrive/Documents/apogee/tests/test_result_visualization.py) tests the fixed simulation output, chart rendering, Rerun serialization, grids, 3D analyses, and `.rrd` saving.
 
 ### Formal documentation
 

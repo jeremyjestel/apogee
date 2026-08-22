@@ -1,28 +1,19 @@
 #include "run_sim.hpp"
+
 #include "analysis/radar_range.hpp"
 #include "core/entity.hpp"
 #include "logging.hpp"
-#include "core/result.hpp"
-#include "params.hpp"
 #include "systems/motion_system.hpp"
 
 #include <cstddef>
-#include <cmath>
 #include <stdexcept>
+#include <vector>
 
 Result run_sim(const Params& p)
 {
-    if (!std::isfinite(p.simulation.dt_s) || p.simulation.dt_s <= 0.0)
+    if (!(p.simulation.dt_s > 0.0 && p.simulation.duration_s >= 0.0))
     {
-        throw std::invalid_argument("Simulation dt_s must be finite and positive");
-    }
-    if (!std::isfinite(p.simulation.duration_s) || p.simulation.duration_s < 0.0)
-    {
-        throw std::invalid_argument("Simulation duration_s must be finite and non-negative");
-    }
-    if (p.simulation.coordinate_frame.empty())
-    {
-        throw std::invalid_argument("Simulation coordinate_frame cannot be empty");
+        throw std::invalid_argument("Simulation dt must be positive and duration cannot be negative");
     }
 
     std::vector<Entity> entities{
@@ -60,32 +51,23 @@ Result run_sim(const Params& p)
         }
     };
     Result result;
-    initialize_entity_state_logging(
-        entities,
-        p.simulation.coordinate_frame,
-        result
-    );
+    initialize_entity_state_logging(entities, p.simulation.coordinate_frame, result);
 
     const double dt_s = p.simulation.dt_s;
 
-    // Simulation
-    for (std::size_t step = 0; ; ++step)
+    for (std::size_t step = 0;
+         static_cast<double>(step) * dt_s < p.simulation.duration_s;
+         ++step)
     {
         const double sim_time_s = static_cast<double>(step) * dt_s;
-        if (sim_time_s >= p.simulation.duration_s)
-        {
-            break;
-        }
-
         log_entity_states(entities, sim_time_s, result);
 
-        for (auto& entity : entities)
+        for (Entity& entity : entities)
         {
             kinematic_update(entity, dt_s);
         }
     }
 
-    // System analysis
     append_radar_range_analysis(p.blue_radar, entities.front().id, result);
 
     return result;

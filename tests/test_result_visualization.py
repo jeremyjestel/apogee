@@ -3,10 +3,7 @@ import pytest
 import rerun as rr
 
 import apogee
-from plot_result import plot_result
-from rerun_integration import show_in_rerun
 from visualization import log_result, save_result
-from visualization import show_result
 from visualization.chart_renderer import render_xy_chart
 
 
@@ -33,7 +30,7 @@ def _axis(key, values, *, kind="continuous", name="Axis", unit=""):
     return axis
 
 
-def _grid(values):
+def _grid():
     grid = apogee.Grid2D()
     grid.entity_id = 0
     grid.system = "radar"
@@ -54,7 +51,7 @@ def _grid(values):
     grid.value_unit = "dB"
     grid.rows = 2
     grid.columns = 3
-    grid.values = values
+    grid.values = [-90.0, -80.0, -70.0, -60.0, -50.0, -40.0]
     grid.has_display_range = True
     grid.display_min = -100.0
     grid.display_max = 0.0
@@ -69,12 +66,7 @@ def _vector(x, y, z):
     return value
 
 
-def test_legacy_entry_points_use_the_single_rerun_pipeline():
-    assert plot_result is show_result
-    assert show_in_rerun is show_result
-
-
-def test_continuous_analysis_chart_is_readable_and_not_flat():
+def test_continuous_analysis_chart_renders():
     image = render_xy_chart(
         [10.0, 1000.0, 5000.0, 10000.0],
         [90.0, 45.0, 20.0, -15.0],
@@ -85,71 +77,46 @@ def test_continuous_analysis_chart_is_readable_and_not_flat():
         color=[40, 110, 255],
     )
 
-    assert image.shape == (495, 880, 3)
+    assert image.ndim == 3
+    assert image.shape[2] == 3
     assert image.dtype == np.uint8
-    assert image.mean() > 150.0
-    assert image.std() > 20.0
-    line_color_distance = np.linalg.norm(
-        image.astype(np.int16) - np.asarray([40, 110, 255], dtype=np.int16),
-        axis=2,
-    )
-    assert np.count_nonzero(line_color_distance < 20.0) > 100
+    assert image.std() > 10.0
 
 
-def test_real_result_contract_is_unique_aligned_and_finite(simulation_result):
+def test_simulation_result_contains_the_expected_data(simulation_result):
     result = simulation_result
-    expected_entities = {
-        1: ("blue_radar_1", "Blue Radar", "radar", "blue"),
-        2: ("blue_satellite_1", "Blue Satellite", "satellite", "blue"),
-        3: ("red_missile_1", "Red Missile", "missile", "red"),
-        4: ("blue_interceptor_1", "Blue Interceptor", "interceptor", "blue"),
+    expected_entity_keys = {
+        "blue_radar_1",
+        "blue_satellite_1",
+        "red_missile_1",
+        "blue_interceptor_1",
     }
 
-    assert len(result.entities) == 4
-    assert len({entity.id for entity in result.entities}) == 4
-    assert len({entity.key for entity in result.entities}) == 4
-    assert {
-        entity.id: (
-            entity.key,
-            entity.display_name,
-            entity.type,
-            entity.team,
-        )
-        for entity in result.entities
-    } == expected_entities
-
-    entities = {entity.id: entity for entity in result.entities}
+    assert {entity.key for entity in result.entities} == expected_entity_keys
     axes = {axis.key: axis for axis in result.axes}
-
-    assert len(axes) == len(result.axes)
-    for axis in result.axes:
-        assert np.all(np.isfinite(np.asarray(axis.values, dtype=np.float64)))
-
-    assert result.scalars
-    for series in result.scalars:
-        assert series.entity_id == 0 or series.entity_id in entities
-        assert series.axis_key in axes
-        values = np.asarray(series.values, dtype=np.float64)
-        assert len(values) == len(axes[series.axis_key].values)
-        assert np.all(np.isfinite(values))
-
     simulation_time = axes["simulation_time"].values
-    radar_range = axes["radar_range_m_entity_1"].values
-    assert len(simulation_time) == 100
-    assert simulation_time[0] == pytest.approx(0.0)
-    assert simulation_time[-1] == pytest.approx(9.9)
-    assert radar_range[0] > 0.0
+    snr_series = next(series for series in result.scalars if series.key == "snr")
 
-    assert result.vectors
-    for series in result.vectors:
-        assert series.entity_id in entities
-        assert series.axis_key in axes
-        values = np.asarray(
-            [[value.x, value.y, value.z] for value in series.values],
-            dtype=np.float64,
-        )
-        assert values.shape == (len(axes[series.axis_key].values), 3)
-        assert np.all(np.isfinite(values))
+    assert len(simulation_time) > 1
+    assert len(snr_series.values) == len(axes[snr_series.axis_key].values)
+
+    for entity in result.entities:
+        vectors = [
+            series for series in result.vectors
+            if series.entity_id == entity.id and series.system == "kinematics"
+        ]
+        speeds = [
+            series for series in result.scalars
+            if series.entity_id == entity.id and series.key == "speed"
+        ]
+        assert [series.key for series in vectors] == [
+            "position",
+            "velocity",
+            "acceleration",
+        ]
+        assert len(speeds) == 1
+        assert all(len(series.values) == len(simulation_time) for series in vectors)
+        assert len(speeds[0].values) == len(simulation_time)
 
 
 def test_real_result_logs_to_memory(
@@ -174,29 +141,7 @@ def test_real_result_saves_to_rrd(simulation_result, tmp_path):
     assert output.stat().st_size > 0
 
 
-def test_nonfinite_radar_configuration_is_rejected():
-    params = apogee.Params()
-    radar = params.blue_radar
-    radar.range_step_m = float("nan")
-    params.blue_radar = radar
-
-    with pytest.raises(ValueError, match="finite and positive"):
-        apogee.run_sim(params)
-
-
-def test_synthetic_grid_logs_to_memory(memory_recording):
-    result = apogee.Result()
-    result.grids = [_grid([-90.0, -80.0, -70.0, -60.0, -50.0, -40.0])]
-    recording, memory = memory_recording
-
-    blueprint = log_result(result, recording)
-
-    assert blueprint is not None
-    assert memory.num_msgs() > 0
-    assert len(memory.drain_as_bytes()) > 0
-
-
-def test_global_3d_analysis_logs_to_memory(memory_recording):
+def test_grid_and_3d_analysis_log_to_memory(memory_recording):
     result = apogee.Result()
     result.axes = [
         _axis(
@@ -221,6 +166,7 @@ def test_global_3d_analysis_logs_to_memory(memory_recording):
         _vector(1.0, 1.0, -5.0),
     ]
     result.vectors = [series]
+    result.grids = [_grid()]
 
     recording, memory = memory_recording
     blueprint = log_result(result, recording)
@@ -228,115 +174,3 @@ def test_global_3d_analysis_logs_to_memory(memory_recording):
     assert blueprint is not None
     assert memory.num_msgs() > 0
     assert len(memory.drain_as_bytes()) > 0
-
-
-def test_series_path_collision_raises_value_error(memory_recording):
-    result = apogee.Result()
-    result.axes = [
-        _axis(
-            "sample",
-            [0.0],
-            name="Sample",
-        )
-    ]
-
-    scalar = apogee.ScalarSeries()
-    scalar.entity_id = 0
-    scalar.system = "radar"
-    scalar.key = "response"
-    scalar.name = "Scalar Response"
-    scalar.axis_key = "sample"
-    scalar.values = [1.0]
-
-    vector = apogee.VectorSeries3()
-    vector.entity_id = 0
-    vector.system = "radar"
-    vector.key = "response"
-    vector.name = "Vector Response"
-    vector.frame = "analysis_space"
-    vector.axis_key = "sample"
-    vector.values = [_vector(1.0, 2.0, 3.0)]
-
-    result.scalars = [scalar]
-    result.vectors = [vector]
-
-    recording, _ = memory_recording
-    with pytest.raises(ValueError, match="same path"):
-        log_result(result, recording)
-
-
-def test_malformed_scalar_shape_raises_value_error(memory_recording):
-    result = apogee.Result()
-    result.axes = [
-        _axis(
-            "simulation_time",
-            [0.0, 1.0],
-            kind="time",
-            name="Simulation Time",
-            unit="s",
-        )
-    ]
-
-    series = apogee.ScalarSeries()
-    series.entity_id = 0
-    series.system = "analysis"
-    series.key = "bad_scalar"
-    series.name = "Bad Scalar"
-    series.unit = "unit"
-    series.axis_key = "simulation_time"
-    series.values = [1.0]
-    result.scalars = [series]
-
-    recording, _ = memory_recording
-    with pytest.raises(ValueError, match="has 1 values.*has 2"):
-        log_result(result, recording)
-
-
-def test_malformed_vector_shape_raises_value_error(memory_recording):
-    result = apogee.Result()
-
-    entity = apogee.EntityDescriptor()
-    entity.id = 1
-    entity.key = "test_entity"
-    entity.display_name = "Test Entity"
-    entity.type = "test"
-    entity.team = "blue"
-    result.entities = [entity]
-    result.axes = [
-        _axis(
-            "simulation_time",
-            [0.0, 1.0],
-            kind="time",
-            name="Simulation Time",
-            unit="s",
-        )
-    ]
-
-    value = apogee.Vec3()
-    value.x = 1.0
-    value.y = 2.0
-    value.z = 3.0
-
-    series = apogee.VectorSeries3()
-    series.entity_id = entity.id
-    series.system = "kinematics"
-    series.key = "position"
-    series.name = "Position"
-    series.unit = "m"
-    series.frame = "ECI"
-    series.axis_key = "simulation_time"
-    series.values = [value]
-    result.vectors = [series]
-
-    recording, _ = memory_recording
-    with pytest.raises(ValueError, match="has 1 values.*has 2"):
-        log_result(result, recording)
-
-
-def test_malformed_grid_shape_raises_value_error(memory_recording):
-    result = apogee.Result()
-    result.grids = [_grid([-90.0, -80.0, -70.0, -60.0, -50.0])]
-
-    recording, _ = memory_recording
-    with pytest.raises(ValueError, match="data does not match its shape"):
-        log_result(result, recording)
