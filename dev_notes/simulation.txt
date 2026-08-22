@@ -29,6 +29,9 @@ Goal is to place into the scene and each entity has a team
 I want to have objects with static analysis of each
 Simulation for the interaction of each in time
 
+Analysis will be done with plots in matplotlib
+Simulation motion will be rerun and other data will be matplotlib
+
 core/
     World: owns entities and associates IDs with components
 components/

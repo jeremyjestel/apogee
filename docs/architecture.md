@@ -10,12 +10,15 @@ APOGEE is a modular C++/Python simulation framework for modeling sensing, tracki
 
 ### Internal Simulation Frame
 
-ENU (East-North-Up)
+The coordinate frame is explicit simulation configuration. The current default is
+ECI (Earth-Centered Inertial), which keeps propagated inertial states in one
+right-handed Cartesian frame. Results carry the frame name with every vector
+series so future ECEF, local, and body-frame data cannot be mixed silently.
 
 ```text
-x = East
-y = North
-z = Up
+origin = Earth's center
+axes   = configured ECI convention
+units  = meters
 ```
 
 ---

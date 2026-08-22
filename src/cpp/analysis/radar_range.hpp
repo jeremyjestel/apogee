@@ -3,4 +3,8 @@
 #include "params.hpp"
 #include "parameter/result.hpp"
 
-Analysis2D compute_radar_range(const BlueRadarParams& radar);
+void append_radar_range_analysis(
+    const BlueRadarParams& radar,
+    int entity_id,
+    Result& result
+);

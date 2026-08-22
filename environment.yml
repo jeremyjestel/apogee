@@ -15,3 +15,5 @@ dependencies:
   - pytest
   - jupyterlab
   - pip
+  - pip:
+      - rerun-sdk==0.36.1

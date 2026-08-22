@@ -27,7 +27,8 @@ PYBIND11_MODULE(apogee, m)
     py::class_<SimulationParams>(m, "SimulationParams")
         .def(py::init<>())
         .def_readwrite("dt_s", &SimulationParams::dt_s)
-        .def_readwrite("duration_s", &SimulationParams::duration_s);
+        .def_readwrite("duration_s", &SimulationParams::duration_s)
+        .def_readwrite("coordinate_frame", &SimulationParams::coordinate_frame);
 
     py::class_<BlueRadarParams>(m, "BlueRadarParams")
         .def(py::init<>())
@@ -70,59 +71,66 @@ PYBIND11_MODULE(apogee, m)
         .def_readwrite("red_missile", &Params::red_missile)
         .def_readwrite("blue_interceptor", &Params::blue_interceptor);
 
-    py::class_<DataSeries>(m, "DataSeries")
+    py::class_<EntityDescriptor>(m, "EntityDescriptor")
         .def(py::init<>())
-        .def_readwrite("name", &DataSeries::name)
-        .def_readwrite("unit", &DataSeries::unit)
-        .def_readwrite("values", &DataSeries::values);
+        .def_readwrite("id", &EntityDescriptor::id)
+        .def_readwrite("key", &EntityDescriptor::key)
+        .def_readwrite("display_name", &EntityDescriptor::display_name)
+        .def_readwrite("type", &EntityDescriptor::type)
+        .def_readwrite("team", &EntityDescriptor::team);
 
-    py::class_<SimulationDataSeries2D>(m, "SimulationDataSeries2D")
+    py::class_<Axis>(m, "Axis")
         .def(py::init<>())
-        .def_readwrite("entity_name", &SimulationDataSeries2D::entity_name)
-        .def_readwrite("name", &SimulationDataSeries2D::name)
-        .def_readwrite("unit", &SimulationDataSeries2D::unit)
-        .def_readwrite("values", &SimulationDataSeries2D::values);
+        .def_readwrite("key", &Axis::key)
+        .def_readwrite("name", &Axis::name)
+        .def_readwrite("unit", &Axis::unit)
+        .def_readwrite("kind", &Axis::kind)
+        .def_readwrite("values", &Axis::values);
 
-    py::class_<VectorDataSeries>(m, "VectorDataSeries")
+    py::class_<ScalarSeries>(m, "ScalarSeries")
         .def(py::init<>())
-        .def_readwrite("entity_name", &VectorDataSeries::entity_name)
-        .def_readwrite("name", &VectorDataSeries::name)
-        .def_readwrite("unit", &VectorDataSeries::unit)
-        .def_readwrite("x", &VectorDataSeries::x)
-        .def_readwrite("y", &VectorDataSeries::y)
-        .def_readwrite("z", &VectorDataSeries::z);
+        .def_readwrite("entity_id", &ScalarSeries::entity_id)
+        .def_readwrite("system", &ScalarSeries::system)
+        .def_readwrite("key", &ScalarSeries::key)
+        .def_readwrite("name", &ScalarSeries::name)
+        .def_readwrite("unit", &ScalarSeries::unit)
+        .def_readwrite("axis_key", &ScalarSeries::axis_key)
+        .def_readwrite("values", &ScalarSeries::values);
 
-    py::class_<SimulationData2D>(m, "SimulationData2D")
+    py::class_<VectorSeries3>(m, "VectorSeries3")
         .def(py::init<>())
-        .def_readwrite("name", &SimulationData2D::name)
-        .def_readwrite("times_s", &SimulationData2D::times_s)
-        .def_readwrite("outputs", &SimulationData2D::outputs);
+        .def_readwrite("entity_id", &VectorSeries3::entity_id)
+        .def_readwrite("system", &VectorSeries3::system)
+        .def_readwrite("key", &VectorSeries3::key)
+        .def_readwrite("name", &VectorSeries3::name)
+        .def_readwrite("unit", &VectorSeries3::unit)
+        .def_readwrite("frame", &VectorSeries3::frame)
+        .def_readwrite("axis_key", &VectorSeries3::axis_key)
+        .def_readwrite("values", &VectorSeries3::values);
 
-    py::class_<SimulationData3D>(m, "SimulationData3D")
+    py::class_<Grid2D>(m, "Grid2D")
         .def(py::init<>())
-        .def_readwrite("name", &SimulationData3D::name)
-        .def_readwrite("times_s", &SimulationData3D::times_s)
-        .def_readwrite("outputs", &SimulationData3D::outputs);
-
-    py::class_<Analysis2D>(m, "Analysis2D")
-        .def(py::init<>())
-        .def_readwrite("name", &Analysis2D::name)
-        .def_readwrite("x", &Analysis2D::x)
-        .def_readwrite("y", &Analysis2D::y);
-
-    py::class_<Analysis3D>(m, "Analysis3D")
-        .def(py::init<>())
-        .def_readwrite("name", &Analysis3D::name)
-        .def_readwrite("x", &Analysis3D::x)
-        .def_readwrite("y", &Analysis3D::y)
-        .def_readwrite("z", &Analysis3D::z);
+        .def_readwrite("entity_id", &Grid2D::entity_id)
+        .def_readwrite("system", &Grid2D::system)
+        .def_readwrite("key", &Grid2D::key)
+        .def_readwrite("name", &Grid2D::name)
+        .def_readwrite("x_axis", &Grid2D::x_axis)
+        .def_readwrite("y_axis", &Grid2D::y_axis)
+        .def_readwrite("value_unit", &Grid2D::value_unit)
+        .def_readwrite("rows", &Grid2D::rows)
+        .def_readwrite("columns", &Grid2D::columns)
+        .def_readwrite("values", &Grid2D::values)
+        .def_readwrite("has_display_range", &Grid2D::has_display_range)
+        .def_readwrite("display_min", &Grid2D::display_min)
+        .def_readwrite("display_max", &Grid2D::display_max);
 
     py::class_<Result>(m, "Result")
         .def(py::init<>())
-        .def_readwrite("simulation_2d", &Result::simulation_2d)
-        .def_readwrite("simulation_3d", &Result::simulation_3d)
-        .def_readwrite("analysis_2d", &Result::analysis_2d)
-        .def_readwrite("analysis_3d", &Result::analysis_3d);
+        .def_readwrite("entities", &Result::entities)
+        .def_readwrite("axes", &Result::axes)
+        .def_readwrite("scalars", &Result::scalars)
+        .def_readwrite("vectors", &Result::vectors)
+        .def_readwrite("grids", &Result::grids);
 
     m.def(
         "run_sim",

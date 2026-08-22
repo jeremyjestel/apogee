@@ -1,12 +1,13 @@
 #pragma once
 #include <string>
-#include <optional>
 #include "components/kinematic_state.hpp"
 
 struct Entity
 {
-    int id;
+    int id = 0;
+    std::string key;
     std::string name;
+    std::string type;
+    std::string team;
     KinematicState kinematics;
-
 };
