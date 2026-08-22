@@ -6,15 +6,10 @@ channels:
 dependencies:
   - python=3.12
   - cmake
-  - ninja
   - pybind11
   - numpy
-  - pandas
-  - matplotlib
   - pillow
-  - scipy
   - pytest
-  - jupyterlab
   - pip
   - pip:
       - rerun-sdk==0.36.1

@@ -1,7 +1,3 @@
-"""Render static scientific charts for display inside Rerun spatial views."""
-
-from __future__ import annotations
-
 import math
 
 import numpy as np
@@ -27,10 +23,7 @@ def _axis_label(name, unit):
 
 
 def _line_color(rgb):
-    color = np.asarray(rgb, dtype=np.float64)
-    if color.shape != (3,) or not np.all(np.isfinite(color)):
-        raise ValueError("Chart colors must contain three finite RGB values")
-    return tuple(int(value) for value in np.clip(color, 0.0, 255.0))
+    return tuple(int(value) for value in rgb)
 
 
 def _nice_axis_limits(values, target_tick_count=6):
@@ -42,9 +35,6 @@ def _nice_axis_limits(values, target_tick_count=6):
         maximum += padding
 
     span = maximum - minimum
-    if not math.isfinite(span) or span <= 0.0:
-        raise ValueError("Chart data range must be finite and positive")
-
     rough_step = span / max(target_tick_count - 1, 1)
     magnitude = 10.0 ** math.floor(math.log10(rough_step))
     fraction = rough_step / magnitude
@@ -110,12 +100,8 @@ def render_xy_chart(
     """Return an RGB image containing a labeled, independently scaled XY chart."""
     x = np.asarray(x_values, dtype=np.float64)
     y = np.asarray(y_values, dtype=np.float64)
-    if x.ndim != 1 or y.ndim != 1:
-        raise ValueError("Chart data must be one-dimensional")
     if len(x) == 0 or len(x) != len(y):
         raise ValueError("Chart axes must be nonempty and have matching lengths")
-    if not np.all(np.isfinite(x)) or not np.all(np.isfinite(y)):
-        raise ValueError("Chart data must contain only finite values")
 
     x_min, x_max, x_step, x_ticks = _nice_axis_limits(x)
     y_min, y_max, y_step, y_ticks = _nice_axis_limits(y)
@@ -181,7 +167,7 @@ def render_xy_chart(
 
     points = [
         (display_x(x_value), display_y(y_value))
-        for x_value, y_value in zip(x, y, strict=True)
+        for x_value, y_value in zip(x, y)
     ]
     chart_color = _line_color(color)
     if len(points) == 1:

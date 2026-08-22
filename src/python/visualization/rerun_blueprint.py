@@ -12,14 +12,6 @@ def _series_label(series):
     return f"{series.name} ({series.unit})" if series.unit else series.name
 
 
-def _entity_by_id(result):
-    return {entity.id: entity for entity in result.entities}
-
-
-def _axis_by_key(result):
-    return {axis.key: axis for axis in result.axes}
-
-
 def _telemetry_container(result, axes):
     entity_grids = []
 
@@ -167,8 +159,8 @@ def _analysis_container(result, entities, axes):
 
 
 def build_blueprint(result):
-    entities = _entity_by_id(result)
-    axes = _axis_by_key(result)
+    entities = {entity.id: entity for entity in result.entities}
+    axes = {axis.key: axis for axis in result.axes}
 
     tabs = [
         rrb.Spatial3DView(
@@ -187,22 +179,10 @@ def build_blueprint(result):
     if analysis is not None:
         tabs.append(analysis)
 
-    blueprint_items = [rrb.Tabs(*tabs, name="Apogee")]
-    timeline = None
+    items = [rrb.Tabs(*tabs, name="Apogee")]
     if "simulation_time" in axes:
-        timeline = "simulation_time"
-    else:
-        timeline = next(
-            (
-                axis.key
-                for axis in result.axes
-                if axis.kind in {"time", "sequence"}
-            ),
-            None,
-        )
-    if timeline is not None:
-        blueprint_items.append(
-            rrb.TimePanel(timeline=timeline, expanded=True)
+        items.append(
+            rrb.TimePanel(timeline="simulation_time", expanded=True)
         )
 
-    return rrb.Blueprint(*blueprint_items, collapse_panels=True)
+    return rrb.Blueprint(*items, collapse_panels=True)
