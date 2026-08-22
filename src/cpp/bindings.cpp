@@ -3,8 +3,8 @@
 
 #include "params.hpp"
 #include "run_sim.hpp"
-#include "components/kinematic_state.hpp"
-#include "parameter/result.hpp"
+#include "core/kinematic_state.hpp"
+#include "core/result.hpp"
 
 namespace py = pybind11;
 

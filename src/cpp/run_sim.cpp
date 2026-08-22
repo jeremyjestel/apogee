@@ -2,7 +2,7 @@
 #include "analysis/radar_range.hpp"
 #include "core/entity.hpp"
 #include "logging.hpp"
-#include "parameter/result.hpp"
+#include "core/result.hpp"
 #include "params.hpp"
 #include "systems/motion_system.hpp"
 
