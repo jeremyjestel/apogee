@@ -4,3 +4,7 @@ build/
 out/
 CMakeCache.txt
 CMakeFiles/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.rrd

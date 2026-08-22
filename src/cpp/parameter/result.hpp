@@ -1,69 +1,83 @@
 #pragma once
 
-#include <vector>
+#include <cstddef>
 #include <string>
+#include <vector>
 
-struct DataSeries
+#include "math/vec3.hpp"
+
+
+struct EntityDescriptor
 {
-    std::string name;         
-    std::string unit;         
+    int id = 0;
+    std::string key;
+    std::string display_name;
+    std::string type;
+    std::string team;
+};
+
+
+// An independent sampling axis. "time" axes contain durations in seconds;
+// "sequence" axes contain integer-valued indices such as range bins.
+struct Axis
+{
+    std::string key;
+    std::string name;
+    std::string unit;
+    std::string kind;
     std::vector<double> values;
 };
 
-struct SimulationDataSeries2D
+
+struct ScalarSeries
 {
-    std::string entity_name;
+    int entity_id = 0;
+    std::string system;
+    std::string key;
     std::string name;
     std::string unit;
+    std::string axis_key;
     std::vector<double> values;
 };
 
-struct VectorDataSeries
+
+struct VectorSeries3
 {
-    std::string entity_name;
+    int entity_id = 0;
+    std::string system;
+    std::string key;
     std::string name;
     std::string unit;
-    std::vector<double> x;
-    std::vector<double> y;
-    std::vector<double> z;
+    std::string frame;
+    std::string axis_key;
+    std::vector<Vec3> values;
 };
 
-struct SimulationData2D
+
+// A row-major scalar field. x_axis has columns entries and y_axis has rows.
+struct Grid2D
 {
+    int entity_id = 0;
+    std::string system;
+    std::string key;
     std::string name;
-    std::vector<double> times_s;
-    std::vector<SimulationDataSeries2D> outputs;
+    Axis x_axis;
+    Axis y_axis;
+    std::string value_unit;
+    std::size_t rows = 0;
+    std::size_t columns = 0;
+    std::vector<double> values;
+    bool has_display_range = false;
+    double display_min = 0.0;
+    double display_max = 0.0;
 };
 
-struct SimulationData3D
-{
-    std::string name;
-    std::vector<double> times_s;
-    std::vector<VectorDataSeries> outputs;
-};
-    
-//Analysis for plots like range vs snr and other system characterization
-
-struct Analysis2D
-{
-    std::string name;
-    DataSeries x;
-    std::vector<DataSeries> y;
-};
-
-// for 3d data
-struct Analysis3D
-{
-    std::string name;
-    DataSeries x;
-    DataSeries y;
-    DataSeries z;
-};
 
 struct Result
 {
-    SimulationData2D simulation_2d;
-    SimulationData3D simulation_3d;
-    std::vector<Analysis2D> analysis_2d;
-    std::vector<Analysis3D> analysis_3d;
+    std::vector<EntityDescriptor> entities;
+    std::vector<Axis> axes;
+    std::vector<ScalarSeries> scalars;
+    std::vector<VectorSeries3> vectors;
+    std::vector<Grid2D> grids;
 };

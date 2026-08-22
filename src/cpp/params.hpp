@@ -1,11 +1,14 @@
 #pragma once
 
+#include <string>
+
 #include "components/kinematic_state.hpp"
 
 struct SimulationParams
 {
-    double dt_s = 1.0;
+    double dt_s = .1;
     double duration_s = 10.0;
+    std::string coordinate_frame = "eci";
 };
 
 struct BlueRadarParams
