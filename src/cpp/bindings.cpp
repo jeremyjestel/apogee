@@ -32,6 +32,10 @@ PYBIND11_MODULE(apogee, m)
     OWNER##_binding.def(py::init<>());                                      \
     PARAMETERS(APOGEE_BIND_PARAMETER, OWNER)
 
+    py::class_<RadarParams> RadarParams_binding{m, "RadarParams"};
+    RadarParams_binding.def(py::init<>());
+    APOGEE_RADAR_PARAMETERS(APOGEE_BIND_PARAMETER, RadarParams)
+
     APOGEE_PARAMETER_GROUPS(APOGEE_BIND_PARAMETER_GROUP)
 
 #undef APOGEE_BIND_PARAMETER_GROUP

@@ -1,5 +1,5 @@
 #pragma once
 
-#include "core/entity.hpp"
+#include "core/kinematic_state.hpp"
 
-void kinematic_update(Entity& entity, double dt_s);
+void update_kinematics(KinematicState& state, double dt_s);

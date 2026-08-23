@@ -1,3 +1,3 @@
-from .rerun_adapter import log_result, save_result, show_result
+from .rerun_adapter import save_result
 
-__all__ = ["log_result", "save_result", "show_result"]
+__all__ = ["save_result"]

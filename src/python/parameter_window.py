@@ -39,10 +39,9 @@ def default_parameter_values():
 def create_params_from_text(values):
     params = apogee.Params()
     for spec in PARAMETER_SPECS:
-        current_value = _get_parameter(params, spec.path)
         text = values[spec.path].strip()
         try:
-            value = text if isinstance(current_value, str) else float(text)
+            value = float(text)
         except ValueError as error:
             raise ValueError(f"{spec.group} — {spec.name} must be a number") from error
         _set_parameter(params, spec.path, value)
@@ -179,6 +178,10 @@ class ParameterWindow:
             save_result(result, self.recording_path)
 
             rerun_executable = Path(sys.executable).parent / "Scripts" / "rerun.exe"
+            if not rerun_executable.is_file():
+                raise FileNotFoundError(
+                    "The Rerun executable was not found in the active environment."
+                )
             self.viewer_process = subprocess.Popen(
                 [
                     str(rerun_executable),

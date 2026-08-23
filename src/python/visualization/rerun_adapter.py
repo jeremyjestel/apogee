@@ -1,7 +1,4 @@
-import os
 from pathlib import Path
-
-os.environ.setdefault("WGPU_BACKEND", "gl")
 
 import numpy as np
 import rerun as rr
@@ -67,7 +64,11 @@ def validate_result(result):
         _claim_path(used_paths, series)
 
     for grid in result.grids:
-        if len(grid.values) != grid.rows * grid.columns:
+        if (
+            len(grid.values) != grid.rows * grid.columns
+            or len(grid.x_axis.values) != grid.columns
+            or len(grid.y_axis.values) != grid.rows
+        ):
             raise ValueError(f"Grid {grid.key} data does not match its shape")
         _claim_path(used_paths, grid)
 
@@ -336,7 +337,7 @@ def _log_grids(recording, result, entities):
         )
 
 
-def log_result(result, recording, *, blueprint=None):
+def _log_result(result, recording, blueprint=None):
     entities, axes = validate_result(result)
     blueprint = blueprint or build_blueprint(result)
 
@@ -348,15 +349,6 @@ def log_result(result, recording, *, blueprint=None):
 
     recording.send_blueprint(blueprint)
     recording.flush()
-    return blueprint
-
-
-def show_result(result):
-    blueprint = build_blueprint(result)
-    recording = rr.RecordingStream(APPLICATION_ID)
-    recording.spawn(default_blueprint=blueprint)
-    log_result(result, recording, blueprint=blueprint)
-    return recording
 
 
 def save_result(result, path):
@@ -365,7 +357,10 @@ def save_result(result, path):
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     recording = rr.RecordingStream(APPLICATION_ID)
-    recording.save(str(output_path), default_blueprint=blueprint)
-    log_result(result, recording, blueprint=blueprint)
-    recording.disconnect()
+    try:
+        recording.save(str(output_path))
+        _log_result(result, recording, blueprint)
+    finally:
+        recording.disconnect()
+
     return output_path

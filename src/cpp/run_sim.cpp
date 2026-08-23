@@ -4,54 +4,66 @@
 #include "core/entity.hpp"
 #include "logging.hpp"
 #include "systems/motion_system.hpp"
+#include "systems/radar_system.hpp"
 
+#include <cmath>
 #include <cstddef>
 #include <stdexcept>
 #include <vector>
 
 Result run_sim(const Params& p)
 {
-    if (!(p.simulation.dt_s > 0.0 && p.simulation.duration_s >= 0.0))
+    if (!std::isfinite(p.simulation.dt_s) || p.simulation.dt_s <= 0.0 ||
+        !std::isfinite(p.simulation.duration_s) ||
+        p.simulation.duration_s < 0.0)
     {
-        throw std::invalid_argument("Simulation dt must be positive and duration cannot be negative");
+        throw std::invalid_argument(
+            "Simulation time step must be positive and duration cannot be negative"
+        );
     }
 
     std::vector<Entity> entities{
         Entity{
             .id = 1,
-            .key = "blue_radar_1",
-            .name = "Blue Radar",
+            .key = "blue_radar",
+            .display_name = "Blue Radar",
             .type = "radar",
             .team = "blue",
-            .kinematics = p.blue_radar.initial_kinematics
+            .kinematics = p.blue_radar.initial_kinematics,
+            .radar = RadarModule{
+                .params = p.blue_radar.radar
+            }
         },
         Entity{
             .id = 2,
-            .key = "blue_satellite_1",
-            .name = "Blue Satellite",
+            .key = "blue_satellite",
+            .display_name = "Blue Satellite",
             .type = "satellite",
             .team = "blue",
             .kinematics = p.blue_satellite.initial_kinematics
         },
         Entity{
             .id = 3,
-            .key = "red_missile_1",
-            .name = "Red Missile",
+            .key = "red_missile",
+            .display_name = "Red Missile",
             .type = "missile",
             .team = "red",
             .kinematics = p.red_missile.initial_kinematics
         },
         Entity{
             .id = 4,
-            .key = "blue_interceptor_1",
-            .name = "Blue Interceptor",
+            .key = "blue_interceptor",
+            .display_name = "Blue Interceptor",
             .type = "interceptor",
             .team = "blue",
             .kinematics = p.blue_interceptor.initial_kinematics
         }
     };
+
+    Entity& blue_radar = entities[0];
+    Entity& red_missile = entities[2];
     Result result;
-    initialize_entity_state_logging(entities, p.simulation.coordinate_frame, result);
+    initialize_entity_state_logging(entities, result);
 
     const double dt_s = p.simulation.dt_s;
 
@@ -64,11 +76,20 @@ Result run_sim(const Params& p)
 
         for (Entity& entity : entities)
         {
-            kinematic_update(entity, dt_s);
+            update_kinematics(entity.kinematics, dt_s);
         }
+
+        radar_update(blue_radar, red_missile);
     }
 
-    append_radar_range_analysis(p.blue_radar, entities.front().id, result);
+    append_radar_range_analysis(
+        blue_radar.radar->params,
+        p.red_missile.radar_cross_section_dbsm,
+        p.blue_radar.max_range_m,
+        p.blue_radar.range_step_m,
+        blue_radar.id,
+        result
+    );
 
     return result;
 }
