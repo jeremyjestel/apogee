@@ -367,4 +367,5 @@ def save_result(result, path):
     recording = rr.RecordingStream(APPLICATION_ID)
     recording.save(str(output_path), default_blueprint=blueprint)
     log_result(result, recording, blueprint=blueprint)
+    recording.disconnect()
     return output_path

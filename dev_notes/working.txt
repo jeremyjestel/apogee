@@ -1,3 +1,6 @@
 Get rerun to show trajectories of different objects with truth value in ECEF
 Conversion of ECEF to local frame
 Create
+Watch out for .hpp of radar range requiring blue radar params type, should be any radar module, want to pass in just the blue radar
+
+Could convert parameters into already being a 
