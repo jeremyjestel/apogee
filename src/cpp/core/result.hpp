@@ -17,8 +17,8 @@ struct EntityDescriptor
 };
 
 
-// An independent sampling axis. "time" axes contain durations in seconds;
-// "sequence" axes contain integer-valued indices such as range bins.
+// An independent sampling axis. "time" contains durations, "sequence"
+// contains integer indices, and "continuous" contains analysis coordinates.
 struct Axis
 {
     std::string key;

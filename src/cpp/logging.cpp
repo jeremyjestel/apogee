@@ -3,9 +3,13 @@
 #include <cmath>
 #include <cstddef>
 
+namespace
+{
+constexpr const char* COORDINATE_FRAME = "eci";
+}
+
 void initialize_entity_state_logging(
     const std::vector<Entity>& entities,
-    const std::string& coordinate_frame,
     Result& result
 )
 {
@@ -21,7 +25,7 @@ void initialize_entity_state_logging(
         result.entities.push_back(EntityDescriptor{
             .id = entity.id,
             .key = entity.key,
-            .display_name = entity.name,
+            .display_name = entity.display_name,
             .type = entity.type,
             .team = entity.team
         });
@@ -32,7 +36,7 @@ void initialize_entity_state_logging(
             .key = "position",
             .name = "Position",
             .unit = "m",
-            .frame = coordinate_frame,
+            .frame = COORDINATE_FRAME,
             .axis_key = "simulation_time"
         });
         result.vectors.push_back(VectorSeries3{
@@ -41,7 +45,7 @@ void initialize_entity_state_logging(
             .key = "velocity",
             .name = "Velocity",
             .unit = "m/s",
-            .frame = coordinate_frame,
+            .frame = COORDINATE_FRAME,
             .axis_key = "simulation_time"
         });
         result.vectors.push_back(VectorSeries3{
@@ -50,7 +54,7 @@ void initialize_entity_state_logging(
             .key = "acceleration",
             .name = "Acceleration",
             .unit = "m/s^2",
-            .frame = coordinate_frame,
+            .frame = COORDINATE_FRAME,
             .axis_key = "simulation_time"
         });
         result.scalars.push_back(ScalarSeries{

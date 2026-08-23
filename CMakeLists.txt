@@ -9,9 +9,12 @@ find_package(pybind11 CONFIG REQUIRED)
 pybind11_add_module(apogee
     src/cpp/bindings.cpp
     src/cpp/analysis/radar_range.cpp
+    src/cpp/core/distance.cpp
     src/cpp/logging.cpp
     src/cpp/run_sim.cpp
     src/cpp/systems/motion_system.cpp
+    src/cpp/systems/radar_system.cpp
+    src/cpp/systems/range_doppler_map.cpp
 )
 
 # Make the compiler find the public simulation headers.

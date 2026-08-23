@@ -3,34 +3,42 @@
 #include <cmath>
 #include <numbers>
 #include <stdexcept>
-#include <string>
 #include <utility>
 #include <vector>
 
+namespace
+{
 constexpr double BOLTZMANN_CONSTANT = 1.380649e-23;
+constexpr double SPEED_OF_LIGHT_MPS = 299792458.0;
+}
 
 void append_radar_range_analysis(
-    const BlueRadarParams& radar,
+    const RadarParams& radar,
+    double target_radar_cross_section_dbsm,
+    double max_range_m,
+    double range_step_m,
     int entity_id,
     Result& result
 )
 {
-    if (!(radar.range_step_m > 0.0 &&
-          radar.max_range_m >= radar.range_step_m &&
-          radar.wavelength_m > 0.0 &&
+    if (!(range_step_m > 0.0 &&
+          max_range_m >= range_step_m &&
+          radar.frequency_hz > 0.0 &&
           radar.bandwidth_hz > 0.0))
     {
         throw std::invalid_argument(
-            "Radar range, wavelength, and bandwidth must be positive"
+            "Radar range, frequency, and bandwidth must be positive"
         );
     }
 
     std::vector<double> ranges_km;
     std::vector<double> snr_db;
 
+    const double wavelength_m = SPEED_OF_LIGHT_MPS / radar.frequency_hz;
+
     const double numerator =
         radar.power_dbw + radar.tx_gain_db + radar.rx_gain_db +
-        radar.RCS_dbsm + 20.0 * std::log10(radar.wavelength_m);
+        target_radar_cross_section_dbsm + 20.0 * std::log10(wavelength_m);
 
     const double noise =
         10.0 * std::log10(BOLTZMANN_CONSTANT) +
@@ -38,23 +46,22 @@ void append_radar_range_analysis(
         10.0 * std::log10(radar.bandwidth_hz);
 
     const int number_of_ranges = static_cast<int>(
-        radar.max_range_m / radar.range_step_m
+        max_range_m / range_step_m
     );
 
     for (int index = 1; index <= number_of_ranges; ++index)
     {
-        const double range_m = index * radar.range_step_m;
+        const double range_m = index * range_step_m;
         ranges_km.push_back(range_m / 1000.0);
 
         const double denominator =
-            3.0 * std::log10(4.0 * std::numbers::pi) +
+            30.0 * std::log10(4.0 * std::numbers::pi) +
             40.0 * std::log10(range_m) + radar.system_loss_db + noise;
 
         snr_db.push_back(numerator - denominator);
     }
 
-    const std::string axis_key =
-        "radar_range_km_entity_" + std::to_string(entity_id);
+    constexpr const char* axis_key = "radar_range_km";
 
     result.axes.push_back(Axis{
         .key = axis_key,

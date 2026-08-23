@@ -4,3 +4,7 @@ Create
 Watch out for .hpp of radar range requiring blue radar params type, should be any radar module, want to pass in just the blue radar
 
 Could convert parameters into already being a 
+
+Down the line make it add entities unlimited and assign targets then war game sims
+
+Multiples of each system is far down the line, much to do with one of each for now, can be deterministic now and war gaming later. 

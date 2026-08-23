@@ -1,9 +1,8 @@
 #pragma once
-#include "core/vec3.hpp"
+
+#include "params.hpp"
 
 struct RadarModule
 {
-    Vec3 pos_m;
-    Vec3 vel_mps;
-    Vec3 accel_mps2;
+    RadarParams params;
 };
