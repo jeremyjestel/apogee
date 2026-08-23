@@ -2,15 +2,11 @@ from add_build_to_path import add_apogee_build_to_path
 
 add_apogee_build_to_path()
 
-import apogee  # type: ignore
-from params import create_params
-from visualization import show_result
+from parameter_window import show_parameter_window
 
 
 def main():
-    params = create_params()
-    result = apogee.run_sim(params)
-    return show_result(result)
+    show_parameter_window()
 
 
 if __name__ == "__main__":

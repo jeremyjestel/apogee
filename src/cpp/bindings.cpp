@@ -24,52 +24,40 @@ PYBIND11_MODULE(apogee, m)
         .def_readwrite("vel_mps", &KinematicState::vel_mps)
         .def_readwrite("accel_mps2", &KinematicState::accel_mps2);
 
-    py::class_<SimulationParams>(m, "SimulationParams")
-        .def(py::init<>())
-        .def_readwrite("dt_s", &SimulationParams::dt_s)
-        .def_readwrite("duration_s", &SimulationParams::duration_s)
-        .def_readwrite("coordinate_frame", &SimulationParams::coordinate_frame);
+#define APOGEE_BIND_PARAMETER(OWNER, KIND, TYPE, MEMBER, INITIAL, NAME, UNIT) \
+    OWNER##_binding.def_readwrite(#MEMBER, &OWNER::MEMBER);
 
-    py::class_<BlueRadarParams>(m, "BlueRadarParams")
-        .def(py::init<>())
-        .def_readwrite("initial_kinematics", &BlueRadarParams::initial_kinematics)
-        .def_readwrite("frequency_hz", &BlueRadarParams::frequency_hz)
-        .def_readwrite("wavelength_m", &BlueRadarParams::wavelength_m)
-        .def_readwrite("power_dbw", &BlueRadarParams::power_dbw)
-        .def_readwrite("tx_gain_db", &BlueRadarParams::tx_gain_db)
-        .def_readwrite("rx_gain_db", &BlueRadarParams::rx_gain_db)
-        .def_readwrite("RCS_dbsm", &BlueRadarParams::RCS_dbsm)
-        .def_readwrite("noise_figure_db", &BlueRadarParams::noise_figure_db)
-        .def_readwrite("bandwidth_hz", &BlueRadarParams::bandwidth_hz)
-        .def_readwrite("system_loss_db", &BlueRadarParams::system_loss_db)
-        .def_readwrite("max_range_m", &BlueRadarParams::max_range_m)
-        .def_readwrite("range_step_m", &BlueRadarParams::range_step_m);
+#define APOGEE_BIND_PARAMETER_GROUP(ROOT, OWNER, GROUP, PARAMETERS)         \
+    py::class_<OWNER> OWNER##_binding{m, #OWNER};                           \
+    OWNER##_binding.def(py::init<>());                                      \
+    PARAMETERS(APOGEE_BIND_PARAMETER, OWNER)
 
-    py::class_<BlueSatelliteParams>(m, "BlueSatelliteParams")
-        .def(py::init<>())
-        .def_readwrite("initial_kinematics", &BlueSatelliteParams::initial_kinematics);
+    APOGEE_PARAMETER_GROUPS(APOGEE_BIND_PARAMETER_GROUP)
 
-    py::class_<RedMissileParams>(m, "RedMissileParams")
-        .def(py::init<>())
-        .def_readwrite("initial_kinematics", &RedMissileParams::initial_kinematics)
-        .def_readwrite("mass_kg", &RedMissileParams::mass_kg)
-        .def_readwrite("speed_mps", &RedMissileParams::speed_mps)
-        .def_readwrite("drag_coefficient", &RedMissileParams::drag_coefficient);
+#undef APOGEE_BIND_PARAMETER_GROUP
+#undef APOGEE_BIND_PARAMETER
 
-    py::class_<BlueInterceptorParams>(m, "BlueInterceptorParams")
-        .def(py::init<>())
-        .def_readwrite("initial_kinematics", &BlueInterceptorParams::initial_kinematics)
-        .def_readwrite("mass_kg", &BlueInterceptorParams::mass_kg)
-        .def_readwrite("thrust_n", &BlueInterceptorParams::thrust_n)
-        .def_readwrite("max_g", &BlueInterceptorParams::max_g);
+    py::class_<Params> params_binding{m, "Params"};
+    params_binding.def(py::init<>());
 
-    py::class_<Params>(m, "Params")
-        .def(py::init<>())
-        .def_readwrite("simulation", &Params::simulation)
-        .def_readwrite("blue_radar", &Params::blue_radar)
-        .def_readwrite("blue_satellite", &Params::blue_satellite)
-        .def_readwrite("red_missile", &Params::red_missile)
-        .def_readwrite("blue_interceptor", &Params::blue_interceptor);
+#define APOGEE_BIND_GROUP(ROOT, TYPE, GROUP, PARAMETERS)                    \
+    params_binding.def_readwrite(#ROOT, &Params::ROOT);
+
+    APOGEE_PARAMETER_GROUPS(APOGEE_BIND_GROUP)
+
+#undef APOGEE_BIND_GROUP
+
+    py::class_<ParameterSpec>(m, "ParameterSpec")
+        .def_readonly("group", &ParameterSpec::group)
+        .def_readonly("path", &ParameterSpec::path)
+        .def_readonly("name", &ParameterSpec::name)
+        .def_readonly("unit", &ParameterSpec::unit);
+
+    m.def(
+        "parameter_specs",
+        &parameter_specs,
+        "Return the parameter names, units, groups, and attribute paths."
+    );
 
     py::class_<EntityDescriptor>(m, "EntityDescriptor")
         .def(py::init<>())

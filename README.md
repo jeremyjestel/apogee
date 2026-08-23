@@ -11,10 +11,10 @@ APOGEE: Multi-Domain Simulation Framework
 
 ### C++ simulation
 
-- [params.hpp](C:/Users/jerem/OneDrive/Documents/apogee/src/cpp/params.hpp) defines all simulation, radar, satellite, missile, and interceptor input parameters and their default initial states.
+- [params.hpp](C:/Users/jerem/OneDrive/Documents/apogee/src/cpp/params.hpp) is the single schema for every parameter’s type, default, display name, unit, C++ field, Python binding, and UI metadata.
 - [run_sim.hpp](C:/Users/jerem/OneDrive/Documents/apogee/src/cpp/run_sim.hpp) declares the main C++ simulation function.
 - [run_sim.cpp](C:/Users/jerem/OneDrive/Documents/apogee/src/cpp/run_sim.cpp) creates the entities, runs the timestep loop, invokes systems and analyses, and returns the completed `Result`.
-- [bindings.cpp](C:/Users/jerem/OneDrive/Documents/apogee/src/cpp/bindings.cpp) exposes the C++ parameter, state, result, and simulation types to Python through pybind11.
+- [bindings.cpp](C:/Users/jerem/OneDrive/Documents/apogee/src/cpp/bindings.cpp) exposes the C++ state and result types while generating parameter bindings from the schema in `params.hpp`.
 - [logging.hpp](C:/Users/jerem/OneDrive/Documents/apogee/src/cpp/logging.hpp) declares the functions that initialize and append entity state data to a result.
 - [logging.cpp](C:/Users/jerem/OneDrive/Documents/apogee/src/cpp/logging.cpp) creates entity result series and records position, velocity, acceleration, and speed at every timestep.
 
@@ -37,8 +37,8 @@ APOGEE: Multi-Domain Simulation Framework
 
 ### Python execution
 
-- [main.py](C:/Users/jerem/OneDrive/Documents/apogee/src/python/main.py) creates parameters, runs the bound C++ simulation, and sends the result to Rerun.
-- [params.py](C:/Users/jerem/OneDrive/Documents/apogee/src/python/params.py) constructs the default bound parameter object and applies scenario-specific Python overrides.
+- [main.py](C:/Users/jerem/OneDrive/Documents/apogee/src/python/main.py) loads the compiled extension and opens the simulation parameter window.
+- [parameter_window.py](C:/Users/jerem/OneDrive/Documents/apogee/src/python/parameter_window.py) generates editable controls from C++ parameter metadata, runs the simulation, opens its Rerun recording, and returns when the viewer closes.
 - [add_build_to_path.py](C:/Users/jerem/OneDrive/Documents/apogee/src/python/add_build_to_path.py) finds the selected compiled extension and rejects missing, incompatible, or stale C++ builds.
 - [plot_result.py](C:/Users/jerem/OneDrive/Documents/apogee/src/python/plot_result.py) preserves the old `plot_result` import while redirecting it to the unified Rerun visualization pipeline.
 - [rerun_integration.py](C:/Users/jerem/OneDrive/Documents/apogee/src/python/rerun_integration.py) preserves the older `show_in_rerun` import as another compatibility alias.
