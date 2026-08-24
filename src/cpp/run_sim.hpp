@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/result.hpp"
-#include "params.hpp"
+#include "core/scenario_params.hpp"
 
-Result run_sim(const Params& params);
+// Execute one fresh simulation from the supplied scenario snapshot.
+Result run_sim(const ScenarioParams& params);

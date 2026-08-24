@@ -6,7 +6,7 @@
 
 #include "core/vec3.hpp"
 
-
+// EntityDescriptor preserves identity and presentation metadata beside result data.
 struct EntityDescriptor
 {
     int id = 0;
@@ -17,8 +17,7 @@ struct EntityDescriptor
 };
 
 
-// An independent sampling axis. "time" contains durations, "sequence"
-// contains integer indices, and "continuous" contains analysis coordinates.
+// Axis stores samples interpreted as time, sequence indices, or analysis coordinates.
 struct Axis
 {
     std::string key;
@@ -28,7 +27,7 @@ struct Axis
     std::vector<double> values;
 };
 
-
+// A scalar series stores one physical value per sample on a referenced axis.
 struct ScalarSeries
 {
     int entity_id = 0;
@@ -40,7 +39,7 @@ struct ScalarSeries
     std::vector<double> values;
 };
 
-
+// A vector series keeps XYZ values together so they can be drawn as a 3D path.
 struct VectorSeries3
 {
     int entity_id = 0;
@@ -72,7 +71,7 @@ struct Grid2D
     double display_max = 0.0;
 };
 
-
+// Result is the complete, visualization-neutral output returned by a simulation run.
 struct Result
 {
     std::vector<EntityDescriptor> entities;

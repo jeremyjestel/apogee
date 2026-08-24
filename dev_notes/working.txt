@@ -8,3 +8,5 @@ Could convert parameters into already being a
 Down the line make it add entities unlimited and assign targets then war game sims
 
 Multiples of each system is far down the line, much to do with one of each for now, can be deterministic now and war gaming later. 
+
+Next is getting range pulse and range doppler map to show up, need to add pw and pri

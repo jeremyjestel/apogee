@@ -10,45 +10,29 @@ import apogee
 from visualization import save_result
 
 
+# Let C++ remain the single source of truth for parameter names, units, and paths.
 PARAMETER_SPECS = apogee.parameter_specs()
 
 
-def _get_parameter(params, path):
-    value = params
-    for name in path.split("."):
-        value = getattr(value, name)
-    return value
-
-
-def _set_parameter(params, path, value):
-    names = path.split(".")
-    owner = params
-    for name in names[:-1]:
-        owner = getattr(owner, name)
-    setattr(owner, names[-1], value)
-
-
 def default_parameter_values():
+    # Read defaults from a fresh scenario so the form mirrors C++ initialization.
     params = apogee.Params()
     return {
-        spec.path: str(_get_parameter(params, spec.path))
+        spec.path: str(apogee.get_parameter(params, spec.path))
         for spec in PARAMETER_SPECS
     }
 
 
 def create_params_from_text(values):
+    # Build a fresh scenario and apply every text-box value through the C++ path API.
     params = apogee.Params()
     for spec in PARAMETER_SPECS:
-        text = values[spec.path].strip()
-        try:
-            value = float(text)
-        except ValueError as error:
-            raise ValueError(f"{spec.group} — {spec.name} must be a number") from error
-        _set_parameter(params, spec.path, value)
+        apogee.set_parameter(params, spec.path, float(values[spec.path]))
     return params
 
 
 def _parameter_groups():
+    # Preserve specification order while collecting fields under their UI headings.
     groups = {}
     for spec in PARAMETER_SPECS:
         groups.setdefault(spec.group, []).append(spec)
@@ -83,6 +67,7 @@ class ParameterWindow:
         self.run_button.grid(row=0, column=1)
 
     def _build_parameter_form(self):
+        # Place the generated form inside a canvas so a long parameter list can scroll.
         container = ttk.Frame(self.root)
         container.pack(fill="both", expand=True)
 
@@ -94,6 +79,7 @@ class ParameterWindow:
         scrollbar.pack(side="right", fill="y")
         canvas.pack(side="left", fill="both", expand=True)
 
+        # Keep the canvas scroll bounds and embedded form width synchronized as it resizes.
         form_window = canvas.create_window((0, 0), window=form, anchor="nw")
         form.bind(
             "<Configure>",
@@ -119,6 +105,7 @@ class ParameterWindow:
             sticky="ew",
         )
 
+        # Generate one labeled entry for every parameter exposed by the binding.
         defaults = default_parameter_values()
         row = 1
         for group_name, specs in _parameter_groups():
@@ -159,15 +146,18 @@ class ParameterWindow:
                 row += 1
 
     def run_simulation(self):
+        # Disable repeat submissions while this run is being prepared and displayed.
         self.run_button.configure(state="disabled")
         self.status.configure(text="Running simulation...")
         self.root.update_idletasks()
 
         try:
+            # Convert the current form into a fresh C++ scenario and run it synchronously.
             values = {path: entry.get() for path, entry in self.entries.items()}
             params = create_params_from_text(values)
             result = apogee.run_sim(params)
 
+            # Save the recording to a unique file that the separate viewer process can open.
             temp_file = tempfile.NamedTemporaryFile(
                 prefix="apogee_",
                 suffix=".rrd",
@@ -177,6 +167,7 @@ class ParameterWindow:
             self.recording_path = Path(temp_file.name)
             save_result(result, self.recording_path)
 
+            # Launch the Rerun executable belonging to the active Python environment.
             rerun_executable = Path(sys.executable).parent / "Scripts" / "rerun.exe"
             if not rerun_executable.is_file():
                 raise FileNotFoundError(
@@ -195,20 +186,24 @@ class ParameterWindow:
             messagebox.showerror("Simulation failed", str(error))
             return
 
+        # Hide this window while Rerun is open, then poll without blocking Tk's event loop.
         self.root.withdraw()
         self.root.after(250, self._wait_for_viewer)
 
     def _wait_for_viewer(self):
+        # Reschedule the check until the external viewer process has exited.
         if self.viewer_process.poll() is None:
             self.root.after(250, self._wait_for_viewer)
             return
 
+        # Restore the parameter form for quick changes and another run.
         self._restore_after_run()
         self.root.deiconify()
         self.root.lift()
         self.root.focus_force()
 
     def _restore_after_run(self):
+        # Delete the temporary recording and reset all per-run UI state.
         if self.recording_path is not None:
             self.recording_path.unlink(missing_ok=True)
         self.recording_path = None
