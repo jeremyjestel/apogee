@@ -13,11 +13,13 @@ def _series_label(series):
 
 
 def _telemetry_container(result, axes):
+    # Build one grid per entity so its telemetry plots stay grouped in a tab.
     entity_grids = []
 
     for entity in result.entities:
         views = []
 
+        # Include nonempty kinematic vectors as native timeline plots.
         for series in result.vectors:
             if (
                 series.entity_id != entity.id
@@ -34,6 +36,7 @@ def _telemetry_container(result, axes):
                 )
             )
 
+        # Include scalar kinematics only when their axis can drive a Rerun timeline.
         for series in result.scalars:
             if (
                 series.entity_id != entity.id
@@ -53,6 +56,7 @@ def _telemetry_container(result, axes):
                 )
             )
 
+        # Avoid creating empty entity tabs when no telemetry was recorded.
         if views:
             entity_grids.append(
                 rrb.Grid(
@@ -69,6 +73,7 @@ def _telemetry_container(result, axes):
 
 
 def _analysis_container(result, entities, axes):
+    # Reserve a view collection for every entity plus ID zero for global analysis.
     views_by_owner = {entity.id: [] for entity in result.entities}
     views_by_owner[0] = []
 
@@ -82,6 +87,7 @@ def _analysis_container(result, entities, axes):
         owner = entity.display_name if entity is not None else "Global"
         view_name = f"{owner} — {series.name}"
 
+        # Continuous XY analysis is stored as an image; timeline data uses a line view.
         if axis.kind == "continuous":
             views_by_owner[series.entity_id].append(
                 rrb.Spatial2DView(
@@ -100,6 +106,7 @@ def _analysis_container(result, entities, axes):
                 )
             )
 
+    # Give each non-kinematic vector result its own 3D analysis view.
     for series in result.vectors:
         if series.system == "kinematics" or not series.values:
             continue
@@ -115,6 +122,7 @@ def _analysis_container(result, entities, axes):
             )
         )
 
+    # Display 2D grids as tensor heatmaps with a consistent orientation and colormap.
     for grid in result.grids:
         entity = entities.get(grid.entity_id)
         path = analysis_grid(entity, grid)
@@ -140,6 +148,7 @@ def _analysis_container(result, entities, axes):
             )
         )
 
+    # Group the finished views into entity tabs, followed by any global results.
     owner_grids = []
     for entity in result.entities:
         views = views_by_owner[entity.id]
@@ -159,9 +168,11 @@ def _analysis_container(result, entities, axes):
 
 
 def build_blueprint(result):
+    # Index metadata used to resolve each series while constructing its view.
     entities = {entity.id: entity for entity in result.entities}
     axes = {axis.key: axis for axis in result.axes}
 
+    # Always lead with the animated 3D scenario view.
     tabs = [
         rrb.Spatial3DView(
             origin="/world",
@@ -171,6 +182,7 @@ def build_blueprint(result):
         )
     ]
 
+    # Add telemetry and analysis tabs only when they contain visible data.
     telemetry = _telemetry_container(result, axes)
     if telemetry is not None:
         tabs.append(telemetry)
@@ -179,6 +191,7 @@ def build_blueprint(result):
     if analysis is not None:
         tabs.append(analysis)
 
+    # Expose simulation time globally when that timeline exists in the result.
     items = [rrb.Tabs(*tabs, name="Apogee")]
     if "simulation_time" in axes:
         items.append(

@@ -1,74 +1,65 @@
 #include "run_sim.hpp"
 
+#include <algorithm>
+#include <cstddef>
+#include <stdexcept>
+#include <string>
+#include <vector>
+
 #include "analysis/radar_range.hpp"
 #include "core/entity.hpp"
+#include "core/entity_factory.hpp"
 #include "logging.hpp"
 #include "systems/motion_system.hpp"
 #include "systems/radar_system.hpp"
 
-#include <cmath>
-#include <cstddef>
-#include <stdexcept>
-#include <vector>
-
-Result run_sim(const Params& p)
+namespace
 {
-    if (!std::isfinite(p.simulation.dt_s) || p.simulation.dt_s <= 0.0 ||
-        !std::isfinite(p.simulation.duration_s) ||
-        p.simulation.duration_s < 0.0)
+// Resolve a fixed scenario entity without depending on vector position.
+Entity& find_entity(std::vector<Entity>& entities, const std::string& key)
+{
+    const auto match = std::find_if(
+        entities.begin(),
+        entities.end(),
+        [&](const Entity& entity)
+        {
+            return entity.key == key;
+        }
+    );
+
+    if (match == entities.end())
     {
-        throw std::invalid_argument(
-            "Simulation time step must be positive and duration cannot be negative"
-        );
+        throw std::invalid_argument("Scenario is missing entity: " + key);
     }
 
-    std::vector<Entity> entities{
-        Entity{
-            .id = 1,
-            .key = "blue_radar",
-            .display_name = "Blue Radar",
-            .type = "radar",
-            .team = "blue",
-            .kinematics = p.blue_radar.initial_kinematics,
-            .radar = RadarModule{
-                .params = p.blue_radar.radar
-            }
-        },
-        Entity{
-            .id = 2,
-            .key = "blue_satellite",
-            .display_name = "Blue Satellite",
-            .type = "satellite",
-            .team = "blue",
-            .kinematics = p.blue_satellite.initial_kinematics
-        },
-        Entity{
-            .id = 3,
-            .key = "red_missile",
-            .display_name = "Red Missile",
-            .type = "missile",
-            .team = "red",
-            .kinematics = p.red_missile.initial_kinematics
-        },
-        Entity{
-            .id = 4,
-            .key = "blue_interceptor",
-            .display_name = "Blue Interceptor",
-            .type = "interceptor",
-            .team = "blue",
-            .kinematics = p.blue_interceptor.initial_kinematics
-        }
-    };
+    return *match;
+}
+}
 
-    Entity& blue_radar = entities[0];
-    Entity& red_missile = entities[2];
+Result run_sim(const ScenarioParams& params)
+{
+    const double dt_s = params.simulation.dt_s;
+    const double duration_s = params.simulation.duration_s;
+
+    // Recreate all runtime entities so state starts fresh on every run.
+    std::vector<Entity> entities;
+    entities.reserve(params.entities.size());
+    for (const EntityDefinition& definition : params.entities)
+    {
+        entities.push_back(instantiate_entity(definition));
+    }
+
+    // Select the fixed radar engagement by the entities' stable identities.
+    Entity& radar_entity = find_entity(entities, "blue_radar");
+    Entity& radar_target = find_entity(entities, "red_missile");
+
+    // Create the result series before the timestep loop starts appending values.
     Result result;
     initialize_entity_state_logging(entities, result);
 
-    const double dt_s = p.simulation.dt_s;
-
+    // Log the current state, advance motion, then update radar once per timestep.
     for (std::size_t step = 0;
-         static_cast<double>(step) * dt_s < p.simulation.duration_s;
+         static_cast<double>(step) * dt_s < duration_s;
          ++step)
     {
         const double sim_time_s = static_cast<double>(step) * dt_s;
@@ -79,15 +70,15 @@ Result run_sim(const Params& p)
             update_kinematics(entity.kinematics, dt_s);
         }
 
-        radar_update(blue_radar, red_missile);
+        radar_update(radar_entity, radar_target);
     }
 
-    append_radar_range_analysis(
-        blue_radar.radar->params,
-        p.red_missile.radar_cross_section_dbsm,
-        p.blue_radar.max_range_m,
-        p.blue_radar.range_step_m,
-        blue_radar.id,
+    // Run non-timestep analysis after the scenario history is complete.
+    radar_range_analysis(
+        radar_entity.radar->params,
+        radar_target.radar_signature_dbsm,
+        params.radar_analysis,
+        radar_entity.id,
         result
     );
 

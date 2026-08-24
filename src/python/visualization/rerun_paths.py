@@ -15,10 +15,12 @@ def telemetry_series(entity, series):
 
 
 def analysis_series(entity, series):
+    # Place ownerless calculations in a shared global analysis namespace.
     owner = entity.key if entity else "global"
     return f"/analysis/entities/{owner}/{series.system}/{series.key}"
 
 
 def analysis_grid(entity, grid):
+    # Use the same owner convention for tensor-based analysis products.
     owner = entity.key if entity else "global"
     return f"/analysis/entities/{owner}/{grid.system}/{grid.key}"

@@ -1,15 +1,22 @@
-#include "radar_system.hpp"
-#include "range_doppler_map.hpp"
+#include "systems/radar_system.hpp"
+
+#include "systems/range_doppler_map.hpp"
 
 void radar_update(Entity& radar,
-                  Entity& target)
+                  const Entity& target)
 {
-   
+    // Entities without a radar component have no radar processing to perform.
+    if (!radar.radar)
+    {
+        return;
+    }
 
-    range_doppler_map(radar, target);
+    // Pass only the owned module and the two kinematic states to processing.
+    range_doppler_map(
+        *radar.radar,
+        radar.kinematics,
+        target.kinematics
+    );
 
-    // other options here will be cfar, association, tracking, etc
-    //Full radar signal processing chain here
-    
-
+    // Future CFAR, association, and tracking stages belong in this chain.
 }

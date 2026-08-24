@@ -34,6 +34,7 @@ VECTOR_DISPLAY_SCALES = {
 
 
 def _vector_array(series):
+    # Convert bound Vec3 objects into the contiguous Nx3 layout expected by Rerun.
     return np.asarray(
         [[value.x, value.y, value.z] for value in series.values],
         dtype=np.float64,
@@ -41,10 +42,12 @@ def _vector_array(series):
 
 
 def validate_result(result):
+    # Index shared metadata once so each series can resolve its owner and axis by ID.
     entities = {entity.id: entity for entity in result.entities}
     axes = {axis.key: axis for axis in result.axes}
     used_paths = set()
 
+    # Confirm every scalar sample has a matching coordinate on its declared axis.
     for series in result.scalars:
         axis = axes[series.axis_key]
         if len(series.values) != len(axis.values):
@@ -54,6 +57,7 @@ def validate_result(result):
             )
         _claim_path(used_paths, series)
 
+    # Apply the same axis-length requirement to each vector sample.
     for series in result.vectors:
         axis = axes[series.axis_key]
         if len(series.values) != len(axis.values):
@@ -63,6 +67,7 @@ def validate_result(result):
             )
         _claim_path(used_paths, series)
 
+    # Confirm flattened grids and both coordinate axes agree with the declared shape.
     for grid in result.grids:
         if (
             len(grid.values) != grid.rows * grid.columns
@@ -76,6 +81,7 @@ def validate_result(result):
 
 
 def _claim_path(used_paths, item):
+    # Mirror the final Rerun namespace to catch series that would overwrite each other.
     area = "telemetry" if item.system == "kinematics" else "analysis"
     path = (area, item.entity_id, item.system, item.key)
     if path in used_paths:
@@ -84,6 +90,7 @@ def _claim_path(used_paths, item):
 
 
 def _time_column(axis):
+    # Preserve integer sequence axes while treating all other timelines as durations.
     values = np.asarray(axis.values, dtype=np.float64)
     if axis.kind == "sequence":
         return rr.TimeColumn(axis.key, sequence=values.astype(np.int64))
@@ -97,6 +104,7 @@ def _entity_color(entity):
 
 
 def _log_entity_metadata(recording, entity):
+    # Store descriptive fields once because they remain fixed throughout the recording.
     recording.log(
         f"{world_entity(entity)}/metadata",
         rr.AnyValues(
@@ -110,12 +118,14 @@ def _log_entity_metadata(recording, entity):
 
 
 def _log_scenario(recording, result, axes):
+    # Establish the world coordinate convention for every child transform and geometry.
     recording.log(
         "/world",
         rr.ViewCoordinates.RIGHT_HAND_Z_UP,
         static=True,
     )
 
+    # Index vector series so each entity can quickly find its kinematic quantities.
     vector_lookup = {
         (series.entity_id, series.system, series.key): series
         for series in result.vectors
@@ -135,11 +145,13 @@ def _log_scenario(recording, result, axes):
             continue
 
         position_axis = axes[position.axis_key]
+        # Stream the entity transform against its declared timeline.
         recording.send_columns(
             root,
             indexes=[_time_column(position_axis)],
             columns=rr.Transform3D.columns(translation=positions),
         )
+        # Attach a static marker at the transformed entity origin.
         recording.log(
             f"{root}/marker",
             rr.Points3D(
@@ -150,6 +162,7 @@ def _log_scenario(recording, result, axes):
             ),
             static=True,
         )
+        # Draw the complete path as static context around the animated marker.
         recording.log(
             world_trajectory(entity),
             rr.LineStrips3D(
@@ -160,6 +173,7 @@ def _log_scenario(recording, result, axes):
             static=True,
         )
 
+        # Display velocity and acceleration as scaled arrows anchored to each position.
         for quantity in ("velocity", "acceleration"):
             series = vector_lookup.get((entity.id, "kinematics", quantity))
             if series is None or len(series.values) == 0:
@@ -167,6 +181,7 @@ def _log_scenario(recording, result, axes):
 
             vectors = _vector_array(series) * VECTOR_DISPLAY_SCALES[quantity]
             path = world_vector(entity, series)
+            # Define arrow styling once, then send changing origins and vectors by column.
             recording.log(
                 path,
                 rr.Arrows3D.from_fields(colors=[VECTOR_COLORS[quantity]]),
@@ -180,6 +195,7 @@ def _log_scenario(recording, result, axes):
 
 
 def _log_vector_telemetry(recording, result, entities, axes):
+    # Represent each kinematic Vec3 as three synchronized X, Y, and Z scalar lines.
     for series in result.vectors:
         if series.system != "kinematics":
             continue
@@ -203,6 +219,7 @@ def _log_vector_telemetry(recording, result, entities, axes):
 
 
 def _log_vector_analysis(recording, result, entities, axes):
+    # Render non-kinematic vectors as static 3D points or paths rather than timelines.
     for series in result.vectors:
         if series.system == "kinematics":
             continue
@@ -236,6 +253,7 @@ def _log_vector_analysis(recording, result, entities, axes):
                 static=True,
             )
 
+        # Retain the independent analysis axis and units alongside the rendered geometry.
         recording.log(
             f"{path}/metadata",
             rr.AnyValues(
@@ -251,6 +269,7 @@ def _log_vector_analysis(recording, result, entities, axes):
 
 
 def _log_scalar_series(recording, result, entities, axes):
+    # Route scalar data to entity telemetry or analysis paths according to its system.
     for series in result.scalars:
         entity = entities.get(series.entity_id)
         axis = axes[series.axis_key]
@@ -262,6 +281,7 @@ def _log_scalar_series(recording, result, entities, axes):
         color = _entity_color(entity)
         values = np.asarray(series.values, dtype=np.float64)
 
+        # Render non-timeline XY data as a labeled image because Rerun plots use timelines.
         if axis.kind == "continuous":
             if len(values) > 0:
                 chart = render_xy_chart(
@@ -278,6 +298,7 @@ def _log_scalar_series(recording, result, entities, axes):
                     rr.Image(chart),
                     static=True,
                 )
+            # Store the source labels so the image remains machine-describable in Rerun.
             recording.log(
                 f"{path}/metadata",
                 rr.AnyValues(
@@ -292,6 +313,7 @@ def _log_scalar_series(recording, result, entities, axes):
 
         if len(values) == 0:
             continue
+        # Use Rerun's native line-series representation for sequence and time axes.
         recording.log(
             path,
             rr.SeriesLines(names=series.name, colors=[color]),
@@ -305,18 +327,21 @@ def _log_scalar_series(recording, result, entities, axes):
 
 
 def _log_grids(recording, result, entities):
+    # Reshape each flattened C++ grid into the row-major tensor expected by Rerun.
     for grid in result.grids:
         entity = entities.get(grid.entity_id)
         path = analysis_grid(entity, grid)
         values = np.asarray(grid.values, dtype=np.float32).reshape(
             (grid.rows, grid.columns)
         )
+        # Name tensor dimensions after their physical axes and honor an optional color range.
         tensor_args = {
             "dim_names": (grid.y_axis.key, grid.x_axis.key),
         }
         if grid.has_display_range:
             tensor_args["value_range"] = (grid.display_min, grid.display_max)
 
+        # Keep physical coordinate arrays and units next to the displayed tensor.
         recording.log(
             path,
             rr.Tensor(values, **tensor_args),
@@ -338,9 +363,11 @@ def _log_grids(recording, result, entities):
 
 
 def _log_result(result, recording, blueprint=None):
+    # Validate and index the result before writing any data into the recording.
     entities, axes = validate_result(result)
     blueprint = blueprint or build_blueprint(result)
 
+    # Populate every visualization area before installing the matching saved layout.
     _log_scenario(recording, result, axes)
     _log_vector_telemetry(recording, result, entities, axes)
     _log_vector_analysis(recording, result, entities, axes)
@@ -352,15 +379,18 @@ def _log_result(result, recording, blueprint=None):
 
 
 def save_result(result, path):
+    # Resolve the output and create parent folders before connecting Rerun to the file.
     blueprint = build_blueprint(result)
     output_path = Path(path).resolve()
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
+    # Own an isolated recording stream so repeated simulations cannot share stale state.
     recording = rr.RecordingStream(APPLICATION_ID)
     try:
         recording.save(str(output_path))
         _log_result(result, recording, blueprint)
     finally:
+        # Always release the file-backed stream, including when logging raises an error.
         recording.disconnect()
 
     return output_path
