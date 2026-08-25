@@ -3,49 +3,56 @@
 #include <cmath>
 #include <utility>
 
+#include "core/constants.hpp"
 #include "params.hpp"
 
 // RadarState contains only measurements that may change while the simulation runs.
 struct RadarState
 {
-    double range_to_target_m = 0.0;
+    double target_range_m = 0.0;
+    double target_vel_mps = 0.0;
+    double signal_to_noise_db = 0.0;
+
 };
 
 struct RadarModule
 {
     // Each module owns a finalized snapshot so parameter edits cannot leak into a run.
     explicit RadarModule(RadarParams input)
-        : params(conversions(std::move(input)))
+        : p(conversions(std::move(input)))
     {
     }
 
-    const RadarParams params;
+    const RadarParams p;
     RadarState state;
 
 private:
     // Convert editable units and decibel quantities into runtime-ready values once.
-    static RadarParams conversions(RadarParams params)
+    static RadarParams conversions(RadarParams p)
     {
-        constexpr double SOL = 2.99792458e8; 
 
         // Convert frequency, power, gain, noise, and loss into calculation units.
-        params.frequency_ghz = params.frequency_hz / 1e9;
-        params.wavelength_m = 299792458.0 / params.frequency_hz;
-        params.power_w = std::pow(10.0, params.power_dbw / 10.0);
-        params.tx_gain_linear = std::pow(10.0, params.tx_gain_db / 10.0);
-        params.rx_gain_linear = std::pow(10.0, params.rx_gain_db / 10.0);
-        params.noise_figure_linear =
-            std::pow(10.0, params.noise_figure_db / 10.0);
-        params.system_loss_linear =
-            std::pow(10.0, params.system_loss_db / 10.0);
+        p.frequency_ghz =
+            p.frequency_hz / constants::hertz_per_gigahertz;
+        p.wavelength_m =
+            constants::speed_of_light_mps / p.frequency_hz;
+        p.power_w = std::pow(10.0, p.power_dbw / 10.0);
+        p.tx_gain_lin = std::pow(10.0, p.tx_gain_db / 10.0);
+        p.rx_gain_lin = std::pow(10.0, p.rx_gain_db / 10.0);
+        p.noise_figure_lin =
+            std::pow(10.0, p.noise_figure_db / 10.0);
+        p.system_loss_lin =
+            std::pow(10.0, p.system_loss_db / 10.0);
 
         // Derive sample timing and range limits from bandwidth and pulse timing.
-        params.sampling_rate_hz = params.bandwidth_hz * 3.0;
-        params.pulse_width_s = params.pulse_width_us / 1e6;
-        params.pri_s = params.pri_us / 1e6;
-        params.minimum_detection_range_m = SOL * params.pulse_width_s / 2.0;
-        params.maximum_unambiguous_range_m = SOL * params.pri_s / 2.0;
+        p.sampling_rate_hz =
+        p.bandwidth_hz * constants::radar_sampling_rate_multiplier;
+        p.pw_s = p.pw_us / constants::microseconds_per_second;
+        p.pri_s = p.pri_us / constants::microseconds_per_second;
+        p.mdr_m = constants::speed_of_light_mps * p.pw_s / 2.0;
+        p.mur_m = constants::speed_of_light_mps * p.pri_s / 2.0;
+        p.wavenumber = 2 * constants::pi / p.wavelength_m;
 
-        return params;
+        return p;
     }
 };

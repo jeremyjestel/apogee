@@ -15,6 +15,7 @@ pybind11_add_module(apogee
     src/cpp/core/find_entity.cpp
     src/cpp/logging.cpp
     src/cpp/math/distance.cpp
+    src/cpp/math/radar_range_equation.cpp
     src/cpp/run_sim.cpp
     src/cpp/scenarios/default/blue_interceptor.cpp
     src/cpp/scenarios/default/blue_radar.cpp

@@ -3,11 +3,7 @@
 #include <cmath>
 #include <cstddef>
 
-namespace
-{
-// Every logged kinematic vector currently uses the Earth-centered inertial frame.
-constexpr const char* COORDINATE_FRAME = "eci";
-}
+#include "core/constants.hpp"
 
 void initialize_entity_state_logging(
     const std::vector<Entity>& entities,
@@ -40,7 +36,7 @@ void initialize_entity_state_logging(
             .key = "position",
             .name = "Position",
             .unit = "m",
-            .frame = COORDINATE_FRAME,
+            .frame = constants::eci_frame,
             .axis_key = "simulation_time"
         });
         result.vectors.push_back(VectorSeries3{
@@ -49,7 +45,7 @@ void initialize_entity_state_logging(
             .key = "velocity",
             .name = "Velocity",
             .unit = "m/s",
-            .frame = COORDINATE_FRAME,
+            .frame = constants::eci_frame,
             .axis_key = "simulation_time"
         });
         result.vectors.push_back(VectorSeries3{
@@ -58,7 +54,7 @@ void initialize_entity_state_logging(
             .key = "acceleration",
             .name = "Acceleration",
             .unit = "m/s^2",
-            .frame = COORDINATE_FRAME,
+            .frame = constants::eci_frame,
             .axis_key = "simulation_time"
         });
 

@@ -7,6 +7,7 @@
 #include <tuple>
 #include <vector>
 
+#include "core/constants.hpp"
 #include "core/entity_definition.hpp"
 #include "core/kinematic_state.hpp"
 #include "core/result.hpp"
@@ -238,6 +239,20 @@ EntityDefinition& find_entity_definition(
 PYBIND11_MODULE(apogee, m)
 {
     m.doc() = "Python bindings for the Apogee simulation";
+
+    // Mirror the shared C++ constants for Python visualization and inspection.
+    py::module_ constants_module = m.def_submodule("constants");
+    constants_module.attr("speed_of_light_mps") =
+        constants::speed_of_light_mps;
+    constants_module.attr("boltzmann_constant_j_per_k") =
+        constants::boltzmann_constant_j_per_k;
+    constants_module.attr("reference_noise_temperature_k") =
+        constants::reference_noise_temperature_k;
+    constants_module.attr("earth_mean_radius_m") =
+        constants::earth_mean_radius_m;
+    constants_module.attr("meters_per_kilometer") =
+        constants::meters_per_kilometer;
+    constants_module.attr("eci_frame") = constants::eci_frame;
 
     // Expose the reusable vector and kinematic state value types first.
     py::class_<Vec3>(m, "Vec3")
