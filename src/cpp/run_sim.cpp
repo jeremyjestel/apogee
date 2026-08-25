@@ -1,40 +1,15 @@
 #include "run_sim.hpp"
 
-#include <algorithm>
 #include <cstddef>
-#include <stdexcept>
-#include <string>
 #include <vector>
 
 #include "analysis/radar_range.hpp"
 #include "core/entity.hpp"
 #include "core/entity_factory.hpp"
+#include "core/find_entity.hpp"
 #include "logging.hpp"
 #include "systems/motion_system.hpp"
 #include "systems/radar_system.hpp"
-
-namespace
-{
-// Resolve a fixed scenario entity without depending on vector position.
-Entity& find_entity(std::vector<Entity>& entities, const std::string& key)
-{
-    const auto match = std::find_if(
-        entities.begin(),
-        entities.end(),
-        [&](const Entity& entity)
-        {
-            return entity.key == key;
-        }
-    );
-
-    if (match == entities.end())
-    {
-        throw std::invalid_argument("Scenario is missing entity: " + key);
-    }
-
-    return *match;
-}
-}
 
 Result run_sim(const ScenarioParams& params)
 {

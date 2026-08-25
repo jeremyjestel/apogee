@@ -9,10 +9,11 @@ EntityDefinition make_red_missile_definition()
         .display_name = "Red Missile",
         .type = "missile",
         .team = "red",
+        // Place the missile roughly 100 km above the radar's side of Earth.
         .initial_kinematics = KinematicState{
-            Vec3{-1000.0, -2000.0, 500.0},
-            Vec3{100.0, 50.0, 25.0},
-            Vec3{5.0, -2.0, 1.0}
+            Vec3{6'471'000.0, 50'000.0, 0.0},
+            Vec3{0.0, 1'500.0, 250.0},
+            Vec3{-9.52, -0.074, 0.0}
         },
         .radar_signature_dbsm = -10.0
     };

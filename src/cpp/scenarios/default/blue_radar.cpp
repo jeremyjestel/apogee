@@ -11,10 +11,11 @@ EntityDefinition make_blue_radar_definition()
         .display_name = "Blue Radar",
         .type = "radar",
         .team = "blue",
+        // Place the ground radar on the equator with Earth's ECI rotation motion.
         .initial_kinematics = KinematicState{
-            Vec3{100.0, 200.0, 300.0},
-            Vec3{1.0, 2.0, 3.0},
-            Vec3{0.1, 0.2, 0.3}
+            Vec3{6'371'000.0, 0.0, 0.0},
+            Vec3{0.0, 464.6, 0.0},
+            Vec3{-0.0339, 0.0, 0.0}
         },
         // Supplying RadarParams attaches a radar component when the entity is created.
         .radar = RadarParams{

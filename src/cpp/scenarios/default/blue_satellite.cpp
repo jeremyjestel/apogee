@@ -9,10 +9,11 @@ EntityDefinition make_blue_satellite_definition()
         .display_name = "Blue Satellite",
         .type = "satellite",
         .team = "blue",
+        // Start the satellite in a plausible circular orbit 500 km above Earth.
         .initial_kinematics = KinematicState{
-            Vec3{1000.0, 2000.0, 3000.0},
-            Vec3{10.0, 20.0, 30.0},
-            Vec3{1.0, 2.0, 3.0}
+            Vec3{0.0, 6'871'000.0, 0.0},
+            Vec3{-7'616.6, 0.0, 0.0},
+            Vec3{0.0, -8.44, 0.0}
         },
         .radar_signature_dbsm = 0.0
     };

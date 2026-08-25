@@ -177,7 +177,7 @@ def build_blueprint(result):
         rrb.Spatial3DView(
             origin="/world",
             contents="/world/**",
-            name="Scenario",
+            name="Scenario (ECI km)",
             line_grid=True,
         )
     ]
@@ -192,10 +192,13 @@ def build_blueprint(result):
         tabs.append(analysis)
 
     # Expose simulation time globally when that timeline exists in the result.
-    items = [rrb.Tabs(*tabs, name="Apogee")]
+    items = [
+        rrb.Tabs(*tabs, name="Apogee"),
+        rrb.BlueprintPanel(expanded=True),
+    ]
     if "simulation_time" in axes:
         items.append(
             rrb.TimePanel(timeline="simulation_time", expanded=True)
         )
 
-    return rrb.Blueprint(*items, collapse_panels=True)
+    return rrb.Blueprint(*items, collapse_panels=False)

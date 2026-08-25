@@ -16,12 +16,13 @@ from .rerun_paths import (
 
 
 APPLICATION_ID = "apogee"
+METERS_TO_KILOMETERS = 0.001
 
 TEAM_COLORS = {
-    "blue": [40, 110, 255],
-    "red": [255, 55, 55],
+    "blue": [40, 110, 255, 255],
+    "red": [255, 55, 55, 255],
 }
-DEFAULT_ENTITY_COLOR = [200, 200, 200]
+DEFAULT_ENTITY_COLOR = [200, 200, 200, 255]
 XYZ_COLORS = [[255, 75, 75], [75, 220, 100], [75, 140, 255]]
 VECTOR_COLORS = {
     "velocity": [60, 230, 100],
@@ -125,6 +126,18 @@ def _log_scenario(recording, result, axes):
         static=True,
     )
 
+    # Draw Earth at its mean physical radius in the kilometer-based ECI scene.
+    recording.log(
+        "/world/earth",
+        rr.Ellipsoids3D(
+            centers=[[0.0, 0.0, 0.0]],
+            radii=[6_371.0],
+            colors=[[45, 105, 180, 255]],
+            labels=["Earth"],
+        ),
+        static=True,
+    )
+
     # Index vector series so each entity can quickly find its kinematic quantities.
     vector_lookup = {
         (series.entity_id, series.system, series.key): series
@@ -140,27 +153,28 @@ def _log_scenario(recording, result, axes):
         if position is None:
             continue
 
-        positions = _vector_array(position)
+        # Convert only the 3D display coordinates; stored simulation values remain meters.
+        positions = _vector_array(position) * METERS_TO_KILOMETERS
         if len(positions) == 0:
             continue
 
         position_axis = axes[position.axis_key]
-        # Stream the entity transform against its declared timeline.
-        recording.send_columns(
-            root,
-            indexes=[_time_column(position_axis)],
-            columns=rr.Transform3D.columns(translation=positions),
-        )
-        # Attach a static marker at the transformed entity origin.
+        # Define marker styling once while its absolute ECI position changes over time.
         recording.log(
-            f"{root}/marker",
-            rr.Points3D(
-                [[0.0, 0.0, 0.0]],
+            root,
+            rr.Points3D.from_fields(
                 colors=[color],
                 radii=rr.Radius.ui_points(8.0),
                 labels=[entity.display_name],
+                show_labels=True,
+                point_shading="flat",
             ),
             static=True,
+        )
+        recording.send_columns(
+            root,
+            indexes=[_time_column(position_axis)],
+            columns=rr.Points3D.columns(positions=positions),
         )
         # Draw the complete path as static context around the animated marker.
         recording.log(
@@ -179,7 +193,11 @@ def _log_scenario(recording, result, axes):
             if series is None or len(series.values) == 0:
                 continue
 
-            vectors = _vector_array(series) * VECTOR_DISPLAY_SCALES[quantity]
+            vectors = (
+                _vector_array(series)
+                * METERS_TO_KILOMETERS
+                * VECTOR_DISPLAY_SCALES[quantity]
+            )
             path = world_vector(entity, series)
             # Define arrow styling once, then send changing origins and vectors by column.
             recording.log(
