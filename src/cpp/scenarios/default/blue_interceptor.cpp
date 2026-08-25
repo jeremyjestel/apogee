@@ -1,5 +1,7 @@
 #include "scenarios/default/entities.hpp"
 
+#include "core/constants.hpp"
+
 EntityDefinition make_blue_interceptor_definition()
 {
     // This factory is the single home for Blue Interceptor's scenario-specific defaults.
@@ -11,7 +13,7 @@ EntityDefinition make_blue_interceptor_definition()
         .team = "blue",
         // Place the interceptor about 20 km above Earth near the engagement.
         .initial_kinematics = KinematicState{
-            Vec3{6'391'000.0, -30'000.0, 0.0},
+            Vec3{constants::earth_mean_radius_m + 20'000.0, -30'000.0, 0.0},
             Vec3{100.0, 1'200.0, 600.0},
             Vec3{-9.76, 0.046, 0.0}
         },

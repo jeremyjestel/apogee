@@ -15,7 +15,8 @@ void radar_update(Entity& radar,
     range_doppler_map(
         *radar.radar,
         radar.kinematics,
-        target.kinematics
+        target.kinematics,
+        target.radar_signature_dbsm
     );
 
     // Future CFAR, association, and tracking stages belong in this chain.

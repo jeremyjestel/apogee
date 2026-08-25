@@ -7,5 +7,6 @@
 void range_doppler_map(
     RadarModule& radar,
     const KinematicState& radar_kinematics,
-    const KinematicState& target_kinematics
+    const KinematicState& target_kinematics,
+    double target_rcs_dbsm
 );

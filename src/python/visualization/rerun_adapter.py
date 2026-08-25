@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import apogee
 import numpy as np
 import rerun as rr
 
@@ -16,7 +17,7 @@ from .rerun_paths import (
 
 
 APPLICATION_ID = "apogee"
-METERS_TO_KILOMETERS = 0.001
+METERS_TO_KILOMETERS = 1.0 / apogee.constants.meters_per_kilometer
 
 TEAM_COLORS = {
     "blue": [40, 110, 255, 255],
@@ -131,7 +132,9 @@ def _log_scenario(recording, result, axes):
         "/world/earth",
         rr.Ellipsoids3D(
             centers=[[0.0, 0.0, 0.0]],
-            radii=[6_371.0],
+            radii=[
+                apogee.constants.earth_mean_radius_m * METERS_TO_KILOMETERS
+            ],
             colors=[[45, 105, 180, 255]],
             labels=["Earth"],
         ),

@@ -1,5 +1,6 @@
 #include "scenarios/default/entities.hpp"
 
+#include "core/constants.hpp"
 #include "params.hpp"
 
 EntityDefinition make_blue_radar_definition()
@@ -13,7 +14,7 @@ EntityDefinition make_blue_radar_definition()
         .team = "blue",
         // Place the ground radar on the equator with Earth's ECI rotation motion.
         .initial_kinematics = KinematicState{
-            Vec3{6'371'000.0, 0.0, 0.0},
+            Vec3{constants::earth_mean_radius_m, 0.0, 0.0},
             Vec3{0.0, 464.6, 0.0},
             Vec3{-0.0339, 0.0, 0.0}
         },
@@ -26,7 +27,7 @@ EntityDefinition make_blue_radar_definition()
             .noise_figure_db = 3.0,
             .bandwidth_hz = 1e6,
             .system_loss_db = 3.0,
-            .pulse_width_us = 1.0,
+            .pw_us = 1.0,
             .pri_us = 3000.0
         },
         .radar_signature_dbsm = 0.0

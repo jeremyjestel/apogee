@@ -58,22 +58,24 @@ struct RadarParams
     double noise_figure_db = 0.0;
     double bandwidth_hz = 0.0;
     double system_loss_db = 0.0;
-    double pulse_width_us = 0.0;
+    double pw_us = 0.0;
     double pri_us = 0.0;
+    int pulse_num = 16;
 
     // These derived values are calculated once in the fresh runtime RadarModule.
     double frequency_ghz = 0.0;
     double wavelength_m = 0.0;
     double power_w = 0.0;
-    double tx_gain_linear = 0.0;
-    double rx_gain_linear = 0.0;
-    double noise_figure_linear = 0.0;
-    double system_loss_linear = 0.0;
+    double tx_gain_lin = 0.0;
+    double rx_gain_lin = 0.0;
+    double noise_figure_lin = 0.0;
+    double system_loss_lin = 0.0;
     double sampling_rate_hz = 0.0;
-    double pulse_width_s = 0.0;
+    double pw_s = 0.0;
     double pri_s = 0.0;
-    double minimum_detection_range_m = 0.0;
-    double maximum_unambiguous_range_m = 0.0;
+    double mdr_m = 0.0;
+    double mur_m = 0.0;
+    double wavenumber = 0.0;
 
     // Only the independent inputs belong in the parameter window.
     static constexpr auto fields()
@@ -123,7 +125,7 @@ struct RadarParams
             ),
             parameter(
                 "pulse_width_us",
-                &RadarParams::pulse_width_us,
+                &RadarParams::pw_us,
                 "Pulse width",
                 "us"
             ),

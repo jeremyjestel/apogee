@@ -1,8 +1,8 @@
-#include "math/distance.hpp"
+#include "math/relative_kinematics.hpp"
 
 #include <cmath>
 
-double get_3d_distance(const Vec3& a, const Vec3& b)
+double get_3d_difference(const Vec3& a, const Vec3& b)
 {
     // Apply the Euclidean norm to the coordinate difference between both points.
     const double dx = a.x - b.x;
