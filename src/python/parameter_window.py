@@ -1,3 +1,4 @@
+import ctypes
 import subprocess
 import sys
 import tempfile
@@ -8,6 +9,41 @@ from tkinter import messagebox, ttk
 import apogee
 
 from visualization import save_result
+
+
+SW_MAXIMIZE = 3
+
+
+def _maximize_process_window(process_id):
+    # Find the visible top-level window created by Rerun's process.
+    found_window = False
+    callback_type = ctypes.WINFUNCTYPE(
+        ctypes.c_bool,
+        ctypes.c_void_p,
+        ctypes.c_void_p,
+    )
+
+    @callback_type
+    def visit_window(window_handle, unused_parameter):
+        nonlocal found_window
+        window_process_id = ctypes.c_ulong()
+        ctypes.windll.user32.GetWindowThreadProcessId(
+            window_handle,
+            ctypes.byref(window_process_id),
+        )
+
+        if (
+            window_process_id.value == process_id
+            and ctypes.windll.user32.IsWindowVisible(window_handle)
+        ):
+            ctypes.windll.user32.ShowWindowAsync(window_handle, SW_MAXIMIZE)
+            found_window = True
+            return False
+
+        return True
+
+    ctypes.windll.user32.EnumWindows(visit_window, 0)
+    return found_window
 
 
 # Let C++ remain the single source of truth for parameter names, units, and paths.
@@ -44,11 +80,13 @@ class ParameterWindow:
         self.root = root
         self.entries = {}
         self.viewer_process = None
+        self.viewer_maximized = False
         self.recording_path = None
 
         root.title("Apogee Simulation Parameters")
         root.geometry("720x820")
         root.minsize(560, 500)
+        root.after_idle(lambda: root.state("zoomed"))
 
         self._build_parameter_form()
 
@@ -173,13 +211,24 @@ class ParameterWindow:
                 raise FileNotFoundError(
                     "The Rerun executable was not found in the active environment."
                 )
+
+            # Ask Windows to open the external Rerun viewer as a maximized window.
+            startup_info = subprocess.STARTUPINFO()
+            startup_info.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            startup_info.wShowWindow = SW_MAXIMIZE
+            viewer_size = (
+                f"{self.root.winfo_screenwidth()}x"
+                f"{self.root.winfo_screenheight()}"
+            )
             self.viewer_process = subprocess.Popen(
                 [
                     str(rerun_executable),
                     str(self.recording_path),
                     "--renderer=gl",
+                    f"--window-size={viewer_size}",
                     "--new",
-                ]
+                ],
+                startupinfo=startup_info,
             )
         except Exception as error:
             self._restore_after_run()
@@ -193,12 +242,17 @@ class ParameterWindow:
     def _wait_for_viewer(self):
         # Reschedule the check until the external viewer process has exited.
         if self.viewer_process.poll() is None:
+            if not self.viewer_maximized:
+                self.viewer_maximized = _maximize_process_window(
+                    self.viewer_process.pid
+                )
             self.root.after(250, self._wait_for_viewer)
             return
 
         # Restore the parameter form for quick changes and another run.
         self._restore_after_run()
         self.root.deiconify()
+        self.root.state("zoomed")
         self.root.lift()
         self.root.focus_force()
 
@@ -208,6 +262,7 @@ class ParameterWindow:
             self.recording_path.unlink(missing_ok=True)
         self.recording_path = None
         self.viewer_process = None
+        self.viewer_maximized = False
         self.run_button.configure(state="normal")
         self.status.configure(text="Ready for another run")
 

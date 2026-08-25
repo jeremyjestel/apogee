@@ -12,6 +12,7 @@ pybind11_add_module(apogee
     src/cpp/bindings.cpp
     src/cpp/analysis/radar_range.cpp
     src/cpp/core/entity_factory.cpp
+    src/cpp/core/find_entity.cpp
     src/cpp/logging.cpp
     src/cpp/math/distance.cpp
     src/cpp/run_sim.cpp
