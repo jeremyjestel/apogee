@@ -2,6 +2,7 @@
 
 #include <Eigen/Dense>
 #include <cmath>
+#include <random>
 
 #include "core/constants.hpp"
 #include "math/relative_kinematics.hpp"
@@ -23,8 +24,8 @@ void range_doppler_map(
         radar_kinematics.pos_m,
         target_kinematics.pos_m);
     radar.state.target_vel_mps = get_3d_difference(
-        radar_kinematics.pos_m,
-        target_kinematics.pos_m);
+        radar_kinematics.vel_mps,
+        target_kinematics.vel_mps);
     double target_range = radar.state.target_range_m;
     double target_vel = radar.state.target_vel_mps;
     
@@ -37,14 +38,15 @@ void range_doppler_map(
         radar.state.target_range_m);
     radar.state.signal_to_noise_db = std::get<3>(radar_equation_result);
 
-    double target_slug;
+    std::complex<double> target_slug;
     double detectable_range_m = p.mur_m - p.mdr_m;
     double detectable_time_s = p.pri_s - p.pw_s;
 
     // if rounding here what do
     int num_samples = std::round(p.sampling_rate_hz * detectable_time_s);
 
-    Eigen::MatrixXd range_pulse = Eigen::MatrixXd::Zero(num_samples, p.pulse_num);
+    Eigen::MatrixXcd range_pulse_empty = Eigen::MatrixXcd::Zero(p.pulse_num, num_samples);
+    Eigen::MatrixXcd range_pulse_map  = Eigen::MatrixXcd::Zero(p.pulse_num, num_samples);
 
     double travel_time_s =
         2 * radar.state.target_range_m / constants::speed_of_light_mps;
@@ -58,10 +60,45 @@ void range_doppler_map(
         double target_rcs_lin = std::pow(10, (target_rcs_dbsm / 10));
         
         for (int i = 0; i < p.pulse_num; i++){
-            target_slug = std::sqrt(target_rcs_lin) * std::exp(j * 2 * p.wavenumber * (target_range + (i - 1) * target_vel));
-            range_pulse(target_sample_ind, i) = target_slug;
+            target_slug = std::sqrt(target_rcs_lin) * std::exp(constants::j * 2 * p.wavenumber * (target_range + i * p.pri_s * target_vel));
+            range_pulse_empty(i, target_sample_ind) = target_slug;
         }
-            
+
+        Eigen::VectorXd pulse_time_vec_s = Eigen::VectorXd::LinSpaced(std::floor(p.sampling_rate_hz * p.pw_s), 0.0, p.pw_s);
+
+        Eigen::VectorXcd lfm_waveform(pulse_time_vec_s.size());
+
+        double chirp_rate = p.bandwidth_hz / p.pw_s;
+    
+        for (Eigen::Index i = 0; i < pulse_time_vec_s.size(); ++i) {
+            double phase = constants::pi * chirp_rate * pulse_time_vec_s(i) * pulse_time_vec_s(i);
+            lfm_waveform(i) = std::exp(constants::j * phase);
+        }
+        Eigen::VectorXcd convolved_range = Eigen::VectorXcd::Zero(range_pulse_map.cols());
+
+        std::random_device rd;
+        std::mt19937 generator(rd());
+        std::normal_distribution<double> randn(0.0, 1.0);
+        double sample = randn(generator);
+        Eigen::MatrixXcd noise_map  = Eigen::MatrixXcd::Zero(p.pulse_num, num_samples);
+        
+        for (int n = 0; n < p.pulse_num; n++){
+            Eigen::RowVectorXcd pulse = range_pulse_empty.row(n);
+            for (int r = 0; r < num_samples; r++) {
+                    noise_map(n, r) = std::complex<double>(randn(generator), randn(generator)) / std::sqrt(2.0);
+                for (int k = 0; k < lfm_waveform.size(); k++) {
+                    int output_index = r + k;
+
+                    if (output_index < num_samples) {
+                        convolved_range(output_index) += pulse(r) * lfm_waveform(k);
+                    }
+                }
+            }
+            range_pulse_map.row(n) = convolved_range;
+        }
+
+
+
     }
     //have to create lfm waveform
     //convolve range pulse with waveform
