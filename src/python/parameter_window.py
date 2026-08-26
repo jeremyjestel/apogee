@@ -1,49 +1,12 @@
-import ctypes
-import subprocess
-import sys
-import tempfile
+import queue
+import threading
 import tkinter as tk
-from pathlib import Path
 from tkinter import messagebox, ttk
 
 import apogee
 
 from visualization import save_result
-
-
-SW_MAXIMIZE = 3
-
-
-def _maximize_process_window(process_id):
-    # Find the visible top-level window created by Rerun's process.
-    found_window = False
-    callback_type = ctypes.WINFUNCTYPE(
-        ctypes.c_bool,
-        ctypes.c_void_p,
-        ctypes.c_void_p,
-    )
-
-    @callback_type
-    def visit_window(window_handle, unused_parameter):
-        nonlocal found_window
-        window_process_id = ctypes.c_ulong()
-        ctypes.windll.user32.GetWindowThreadProcessId(
-            window_handle,
-            ctypes.byref(window_process_id),
-        )
-
-        if (
-            window_process_id.value == process_id
-            and ctypes.windll.user32.IsWindowVisible(window_handle)
-        ):
-            ctypes.windll.user32.ShowWindowAsync(window_handle, SW_MAXIMIZE)
-            found_window = True
-            return False
-
-        return True
-
-    ctypes.windll.user32.EnumWindows(visit_window, 0)
-    return found_window
+from visualization.viewer_session import ViewerSession
 
 
 # Let C++ remain the single source of truth for parameter names, units, and paths.
@@ -79,14 +42,16 @@ class ParameterWindow:
     def __init__(self, root):
         self.root = root
         self.entries = {}
-        self.viewer_process = None
-        self.viewer_maximized = False
-        self.recording_path = None
+        self.viewer_session = ViewerSession()
+        self.run_thread = None
+        self.run_messages = queue.SimpleQueue()
+        self.cancel_run = threading.Event()
 
         root.title("Apogee Simulation Parameters")
         root.geometry("720x820")
         root.minsize(560, 500)
         root.after_idle(lambda: root.state("zoomed"))
+        root.protocol("WM_DELETE_WINDOW", self._close)
 
         self._build_parameter_form()
 
@@ -127,9 +92,16 @@ class ParameterWindow:
             "<Configure>",
             lambda event: canvas.itemconfigure(form_window, width=event.width),
         )
-        canvas.bind_all(
-            "<MouseWheel>",
-            lambda event: canvas.yview_scroll(-event.delta // 120, "units"),
+        def scroll_form(event):
+            canvas.yview_scroll(-event.delta // 120, "units")
+
+        canvas.bind(
+            "<Enter>",
+            lambda event: self.root.bind_all("<MouseWheel>", scroll_form),
+        )
+        canvas.bind(
+            "<Leave>",
+            lambda event: self.root.unbind_all("<MouseWheel>"),
         )
 
         form.columnconfigure(0, weight=1)
@@ -187,65 +159,55 @@ class ParameterWindow:
         # Disable repeat submissions while this run is being prepared and displayed.
         self.run_button.configure(state="disabled")
         self.status.configure(text="Running simulation...")
-        self.root.update_idletasks()
+        values = {path: entry.get() for path, entry in self.entries.items()}
+        window_size = (
+            self.root.winfo_screenwidth(),
+            self.root.winfo_screenheight(),
+        )
+        self.cancel_run.clear()
+        self.run_thread = threading.Thread(
+            target=self._run_worker,
+            args=(values, window_size),
+            name="apogee-simulation",
+            daemon=True,
+        )
+        self.run_thread.start()
+        self.root.after(100, self._wait_for_simulation)
 
+    def _run_worker(self, values, window_size):
         try:
-            # Convert the current form into a fresh C++ scenario and run it synchronously.
-            values = {path: entry.get() for path, entry in self.entries.items()}
             params = create_params_from_text(values)
             result = apogee.run_sim(params)
-
-            # Save the recording to a unique file that the separate viewer process can open.
-            temp_file = tempfile.NamedTemporaryFile(
-                prefix="apogee_",
-                suffix=".rrd",
-                delete=False,
-            )
-            temp_file.close()
-            self.recording_path = Path(temp_file.name)
-            save_result(result, self.recording_path)
-
-            # Launch the Rerun executable belonging to the active Python environment.
-            rerun_executable = Path(sys.executable).parent / "Scripts" / "rerun.exe"
-            if not rerun_executable.is_file():
-                raise FileNotFoundError(
-                    "The Rerun executable was not found in the active environment."
-                )
-
-            # Ask Windows to open the external Rerun viewer as a maximized window.
-            startup_info = subprocess.STARTUPINFO()
-            startup_info.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-            startup_info.wShowWindow = SW_MAXIMIZE
-            viewer_size = (
-                f"{self.root.winfo_screenwidth()}x"
-                f"{self.root.winfo_screenheight()}"
-            )
-            self.viewer_process = subprocess.Popen(
-                [
-                    str(rerun_executable),
-                    str(self.recording_path),
-                    "--renderer=gl",
-                    f"--window-size={viewer_size}",
-                    "--new",
-                ],
-                startupinfo=startup_info,
+            if self.cancel_run.is_set():
+                return
+            self.viewer_session.start(
+                lambda recording_path: save_result(result, recording_path),
+                window_size=window_size,
             )
         except Exception as error:
+            self.run_messages.put(error)
+            return
+        self.run_messages.put(None)
+
+    def _wait_for_simulation(self):
+        if self.run_thread.is_alive():
+            self.root.after(100, self._wait_for_simulation)
+            return
+
+        error = self.run_messages.get()
+        self.run_thread = None
+        if error is not None:
             self._restore_after_run()
             messagebox.showerror("Simulation failed", str(error))
             return
 
-        # Hide this window while Rerun is open, then poll without blocking Tk's event loop.
+        # Hide this window while Rerun is open, then poll without blocking Tk.
         self.root.withdraw()
         self.root.after(250, self._wait_for_viewer)
 
     def _wait_for_viewer(self):
         # Reschedule the check until the external viewer process has exited.
-        if self.viewer_process.poll() is None:
-            if not self.viewer_maximized:
-                self.viewer_maximized = _maximize_process_window(
-                    self.viewer_process.pid
-                )
+        if self.viewer_session.poll() is None:
             self.root.after(250, self._wait_for_viewer)
             return
 
@@ -258,13 +220,14 @@ class ParameterWindow:
 
     def _restore_after_run(self):
         # Delete the temporary recording and reset all per-run UI state.
-        if self.recording_path is not None:
-            self.recording_path.unlink(missing_ok=True)
-        self.recording_path = None
-        self.viewer_process = None
-        self.viewer_maximized = False
+        self.viewer_session.cleanup()
         self.run_button.configure(state="normal")
         self.status.configure(text="Ready for another run")
+
+    def _close(self):
+        self.cancel_run.set()
+        self.viewer_session.cleanup()
+        self.root.destroy()
 
 
 def show_parameter_window():

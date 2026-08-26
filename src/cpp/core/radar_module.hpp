@@ -1,6 +1,8 @@
 #pragma once
 
+#include <cstdint>
 #include <cmath>
+#include <random>
 #include <utility>
 
 #include "core/constants.hpp"
@@ -18,13 +20,18 @@ struct RadarState
 struct RadarModule
 {
     // Each module owns a finalized snapshot so parameter edits cannot leak into a run.
-    explicit RadarModule(RadarParams input)
-        : p(conversions(std::move(input)))
+    explicit RadarModule(
+        RadarParams input,
+        std::uint32_t noise_seed = std::random_device{}()
+    )
+        : p(conversions(std::move(input))),
+          noise_generator(noise_seed)
     {
     }
 
     const RadarParams p;
     RadarState state;
+    std::mt19937 noise_generator;
 
 private:
     // Convert editable units and decibel quantities into runtime-ready values once.

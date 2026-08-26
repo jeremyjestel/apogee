@@ -1,178 +1,101 @@
-import rerun as rr
 import rerun.blueprint as rrb
 
-from .rerun_paths import analysis_grid, analysis_series, telemetry_series
+from .view_catalog import (
+    SPATIAL_2D_VIEW,
+    SPATIAL_3D_VIEW,
+    TEXT_VIEW,
+    TIME_SERIES_VIEW,
+    as_view_catalog,
+)
 
 
-def _axis_label(axis):
-    return f"{axis.name} ({axis.unit})" if axis.unit else axis.name
+def _view_label(view):
+    return f"{view.name} ({view.unit})" if view.unit else view.name
 
 
-def _series_label(series):
-    return f"{series.name} ({series.unit})" if series.unit else series.name
+def _view_from_spec(view):
+    common = {
+        "origin": view.plot_path,
+        "contents": [view.plot_path],
+        "name": _view_label(view),
+    }
+    if view.view_type == TIME_SERIES_VIEW:
+        return rrb.TimeSeriesView(**common)
+    if view.view_type == SPATIAL_2D_VIEW:
+        return rrb.Spatial2DView(**common, background=[244, 246, 248])
+    if view.view_type == SPATIAL_3D_VIEW:
+        return rrb.Spatial3DView(**common, line_grid=True)
+    if view.view_type == TEXT_VIEW:
+        return rrb.TextDocumentView(**common)
+    raise ValueError(f"Unsupported catalog view type: {view.view_type}")
 
 
-def _telemetry_container(result, axes):
-    # Build one grid per entity so its telemetry plots stay grouped in a tab.
-    entity_grids = []
+def _owner_groups(catalog, section):
+    by_owner = {}
+    for view in catalog.in_section(section):
+        by_owner.setdefault(view.owner_id, []).append(view)
 
-    for entity in result.entities:
-        views = []
-
-        # Include nonempty kinematic vectors as native timeline plots.
-        for series in result.vectors:
-            if (
-                series.entity_id != entity.id
-                or series.system != "kinematics"
-                or not series.values
-            ):
-                continue
-            path = telemetry_series(entity, series)
-            views.append(
-                rrb.TimeSeriesView(
-                    origin=path,
-                    contents=[path],
-                    name=_series_label(series),
-                )
-            )
-
-        # Include scalar kinematics only when their axis can drive a Rerun timeline.
-        for series in result.scalars:
-            if (
-                series.entity_id != entity.id
-                or series.system != "kinematics"
-                or not series.values
-            ):
-                continue
-            axis = axes[series.axis_key]
-            if axis.kind not in {"time", "sequence"}:
-                continue
-            path = telemetry_series(entity, series)
-            views.append(
-                rrb.TimeSeriesView(
-                    origin=path,
-                    contents=[path],
-                    name=_series_label(series),
-                )
-            )
-
-        # Avoid creating empty entity tabs when no telemetry was recorded.
-        if views:
-            entity_grids.append(
-                rrb.Grid(
-                    *views,
-                    grid_columns=2,
-                    name=entity.display_name,
-                )
-            )
-
-    if not entity_grids:
-        return None
-
-    return rrb.Tabs(*entity_grids, name="Telemetry")
+    groups = []
+    for entity in catalog.entity_items:
+        owner_views = by_owner.get(entity.id, ())
+        if owner_views:
+            groups.append((entity.display_name, owner_views))
+    if by_owner.get(0):
+        groups.append(("Global", by_owner[0]))
+    return groups
 
 
-def _analysis_container(result, entities, axes):
-    # Reserve a view collection for every entity plus ID zero for global analysis.
-    views_by_owner = {entity.id: [] for entity in result.entities}
-    views_by_owner[0] = []
-
-    for series in result.scalars:
-        if series.system == "kinematics" or not series.values:
-            continue
-
-        entity = entities.get(series.entity_id)
-        path = analysis_series(entity, series)
-        axis = axes[series.axis_key]
-        owner = entity.display_name if entity is not None else "Global"
-        view_name = f"{owner} — {series.name}"
-
-        # Continuous XY analysis is stored as an image; timeline data uses a line view.
-        if axis.kind == "continuous":
-            views_by_owner[series.entity_id].append(
-                rrb.Spatial2DView(
-                    origin=path,
-                    contents=[path],
-                    name=f"{view_name} [{_axis_label(axis)}]",
-                    background=[244, 246, 248],
-                )
-            )
-        else:
-            views_by_owner[series.entity_id].append(
-                rrb.TimeSeriesView(
-                    origin=path,
-                    contents=[path],
-                    name=view_name,
-                )
-            )
-
-    # Give each non-kinematic vector result its own 3D analysis view.
-    for series in result.vectors:
-        if series.system == "kinematics" or not series.values:
-            continue
-
-        entity = entities.get(series.entity_id)
-        path = analysis_series(entity, series)
-        views_by_owner[series.entity_id].append(
-            rrb.Spatial3DView(
-                origin=path,
-                contents=[path],
-                name=_series_label(series),
-                line_grid=True,
-            )
+def _telemetry_container(catalog):
+    # Telemetry retains compact grids within one tab per owner.
+    owner_grids = [
+        rrb.Grid(
+            *(_view_from_spec(view) for view in views),
+            grid_columns=2,
+            name=owner_name,
         )
-
-    # Display 2D grids as tensor heatmaps with a consistent orientation and colormap.
-    for grid in result.grids:
-        entity = entities.get(grid.entity_id)
-        path = analysis_grid(entity, grid)
-        owner = entity.display_name if entity is not None else "Global"
-        views_by_owner[grid.entity_id].append(
-            rrb.TensorView(
-                origin=path,
-                contents=[path],
-                name=f"{owner} — {grid.name}",
-                slice_selection=rrb.TensorSliceSelection(
-                    width=1,
-                    height=rr.TensorDimensionSelection(
-                        dimension=0,
-                        invert=True,
-                    ),
-                ),
-                scalar_mapping=rrb.TensorScalarMapping(
-                    colormap="turbo",
-                    gamma=1.0,
-                    mag_filter="nearest",
-                ),
-                view_fit="fill",
-            )
-        )
-
-    # Group the finished views into entity tabs, followed by any global results.
-    owner_grids = []
-    for entity in result.entities:
-        views = views_by_owner[entity.id]
-        if views:
-            owner_grids.append(
-                rrb.Grid(*views, grid_columns=2, name=entity.display_name)
-            )
-
-    global_views = views_by_owner[0]
-    if global_views:
-        owner_grids.append(rrb.Grid(*global_views, grid_columns=2, name="Global"))
-
+        for owner_name, views in _owner_groups(catalog, "telemetry")
+    ]
     if not owner_grids:
         return None
+    return rrb.Tabs(*owner_grids, name="Telemetry")
 
-    return rrb.Tabs(*owner_grids, name="Analysis")
+
+def _analysis_container(catalog):
+    # Every analysis product gets a full-size tab nested below its owner.
+    owner_tabs = []
+    for owner_name, views in _owner_groups(catalog, "analysis"):
+        grouped = {}
+        nodes = []
+        for view in views:
+            if view.group:
+                grouped.setdefault(view.group, []).append(view)
+            else:
+                nodes.append((view.display_sort_key, _view_from_spec(view)))
+
+        for group_name, group_views in grouped.items():
+            nodes.append(
+                (
+                    min(view.display_sort_key for view in group_views),
+                    rrb.Tabs(
+                        *(_view_from_spec(view) for view in group_views),
+                        name=group_name,
+                    ),
+                )
+            )
+
+        nodes.sort(key=lambda node: node[0])
+        owner_tabs.append(
+            rrb.Tabs(*(node[1] for node in nodes), name=owner_name)
+        )
+    if not owner_tabs:
+        return None
+    return rrb.Tabs(*owner_tabs, name="Analysis")
 
 
-def build_blueprint(result):
-    # Index metadata used to resolve each series while constructing its view.
-    entities = {entity.id: entity for entity in result.entities}
-    axes = {axis.key: axis for axis in result.axes}
+def build_blueprint(result_or_catalog):
+    # Reusing a catalog prevents logging and layout from classifying data separately.
+    catalog = as_view_catalog(result_or_catalog)
 
-    # Always lead with the animated 3D scenario view.
     tabs = [
         rrb.Spatial3DView(
             origin="/world",
@@ -182,23 +105,19 @@ def build_blueprint(result):
         )
     ]
 
-    # Add telemetry and analysis tabs only when they contain visible data.
-    telemetry = _telemetry_container(result, axes)
+    telemetry = _telemetry_container(catalog)
     if telemetry is not None:
         tabs.append(telemetry)
 
-    analysis = _analysis_container(result, entities, axes)
+    analysis = _analysis_container(catalog)
     if analysis is not None:
         tabs.append(analysis)
 
-    # Expose simulation time globally when that timeline exists in the result.
     items = [
         rrb.Tabs(*tabs, name="Apogee"),
         rrb.BlueprintPanel(expanded=True),
     ]
-    if "simulation_time" in axes:
-        items.append(
-            rrb.TimePanel(timeline="simulation_time", expanded=True)
-        )
+    if "simulation_time" in catalog.axes:
+        items.append(rrb.TimePanel(timeline="simulation_time", expanded=True))
 
     return rrb.Blueprint(*items, collapse_panels=False)

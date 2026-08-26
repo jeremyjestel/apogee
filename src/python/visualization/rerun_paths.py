@@ -11,16 +11,27 @@ def world_vector(entity, series):
 
 
 def telemetry_series(entity, series):
-    return f"/telemetry/entities/{entity.key}/{series.system}/{series.key}"
+    owner = entity.key if entity else "global"
+    return f"/telemetry/entities/{owner}/{series.system}/{series.key}"
 
 
-def analysis_series(entity, series):
+def analysis_product(entity, item):
     # Place ownerless calculations in a shared global analysis namespace.
     owner = entity.key if entity else "global"
-    return f"/analysis/entities/{owner}/{series.system}/{series.key}"
+    return f"/analysis/entities/{owner}/{item.system}/{item.key}"
 
 
-def analysis_grid(entity, grid):
-    # Use the same owner convention for tensor-based analysis products.
-    owner = entity.key if entity else "global"
-    return f"/analysis/entities/{owner}/{grid.system}/{grid.key}"
+def data_child(path):
+    return f"{path}/data"
+
+
+def plot_child(path):
+    return f"{path}/plot"
+
+
+def metadata_child(path):
+    return f"{path}/metadata"
+
+
+def axis_child(path, axis_name):
+    return f"{path}/{axis_name}_axis"
