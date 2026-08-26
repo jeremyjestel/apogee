@@ -1,6 +1,8 @@
 #include "run_sim.hpp"
 
 #include <cstddef>
+#include <optional>
+#include <utility>
 #include <vector>
 
 #include "analysis/radar_range.hpp"
@@ -30,7 +32,11 @@ Result run_sim(const ScenarioParams& params)
 
     // Create the result series before the timestep loop starts appending values.
     Result result;
-    initialize_entity_state_logging(entities, result);
+    const LoggingLayout logging_layout = initialize_entity_state_logging(
+        entities,
+        result
+    );
+    std::optional<RangePulseProduct> latest_range_pulse;
 
     // Log the current state, advance motion, then update radar once per timestep.
     for (std::size_t step = 0;
@@ -38,19 +44,75 @@ Result run_sim(const ScenarioParams& params)
          ++step)
     {
         const double sim_time_s = static_cast<double>(step) * dt_s;
-        log_entity_states(entities, sim_time_s, result);
+        log_entity_states(entities, logging_layout, sim_time_s, result);
 
         for (Entity& entity : entities)
         {
             update_kinematics(entity.kinematics, dt_s);
         }
 
-        radar_update(radar_entity, radar_target);
+        if (auto range_pulse = radar_update(radar_entity, radar_target))
+        {
+            latest_range_pulse = std::move(*range_pulse);
+        }
     }
+
+    // Convert the most recent detectable product into one static analysis grid.
+    if (latest_range_pulse)
+    {
+        result.grids.push_back(make_noisy_range_doppler_grid(
+            *latest_range_pulse,
+            radar_entity.radar->p,
+            radar_entity.id
+        ));
+    }
+
+    // A snapshot represents labeled values directly, without a synthetic sample axis.
+    result.snapshots.push_back(Snapshot{
+        .entity_id = radar_entity.id,
+        .system = "radar",
+        .key = "state",
+        .name = "State Variables",
+        .metrics = {
+            Metric{
+                .key = "target_range",
+                .name = "Target Range",
+                .unit = "m",
+                .value = radar_entity.radar->state.target_range_m
+            },
+            Metric{
+                .key = "target_velocity",
+                .name = "Target Velocity",
+                .unit = "m/s",
+                .value = radar_entity.radar->state.target_vel_mps
+            },
+            Metric{
+                .key = "signal_to_noise",
+                .name = "Signal-to-Noise Ratio",
+                .unit = "dB",
+                .value = radar_entity.radar->state.signal_to_noise_db
+            },
+            Metric{
+                .key = "pulse_width",
+                .name = "Pulse Width",
+                .unit = "us",
+                .value = radar_entity.radar->p.pw_us
+            },
+            Metric{
+                .key = "pulse_repetition_interval",
+                .name = "Pulse Repetition Interval",
+                .unit = "us",
+                .value = radar_entity.radar->p.pri_us
+            }
+        },
+        .presentation = Presentation{
+            .order = 30
+        }
+    });
 
     // Run non-timestep analysis after the scenario history is complete.
     radar_range_analysis(
-        radar_entity.radar->params,
+        radar_entity.radar->p,
         radar_target.radar_signature_dbsm,
         params.radar_analysis,
         radar_entity.id,

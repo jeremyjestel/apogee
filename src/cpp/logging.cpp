@@ -5,12 +5,15 @@
 
 #include "core/constants.hpp"
 
-void initialize_entity_state_logging(
+LoggingLayout initialize_entity_state_logging(
     const std::vector<Entity>& entities,
     Result& result
 )
 {
-    // The shared simulation-time axis is stored first so logging can append by index.
+    LoggingLayout layout;
+    layout.simulation_time_axis = result.axes.size();
+    layout.entities.reserve(entities.size());
+
     result.axes.push_back(Axis{
         .key = "simulation_time",
         .name = "Simulation Time",
@@ -20,6 +23,8 @@ void initialize_entity_state_logging(
 
     for (const Entity& entity : entities)
     {
+        EntityLoggingHandles handles;
+
         // Preserve entity identity separately so every series can refer to it by ID.
         result.entities.push_back(EntityDescriptor{
             .id = entity.id,
@@ -30,6 +35,7 @@ void initialize_entity_state_logging(
         });
 
         // Keep position, velocity, and acceleration consecutive for each entity.
+        handles.position_series = result.vectors.size();
         result.vectors.push_back(VectorSeries3{
             .entity_id = entity.id,
             .system = "kinematics",
@@ -39,6 +45,7 @@ void initialize_entity_state_logging(
             .frame = constants::eci_frame,
             .axis_key = "simulation_time"
         });
+        handles.velocity_series = result.vectors.size();
         result.vectors.push_back(VectorSeries3{
             .entity_id = entity.id,
             .system = "kinematics",
@@ -48,6 +55,7 @@ void initialize_entity_state_logging(
             .frame = constants::eci_frame,
             .axis_key = "simulation_time"
         });
+        handles.acceleration_series = result.vectors.size();
         result.vectors.push_back(VectorSeries3{
             .entity_id = entity.id,
             .system = "kinematics",
@@ -59,6 +67,7 @@ void initialize_entity_state_logging(
         });
 
         // Speed is logged separately because it is a scalar derived from velocity.
+        handles.speed_series = result.scalars.size();
         result.scalars.push_back(ScalarSeries{
             .entity_id = entity.id,
             .system = "kinematics",
@@ -67,33 +76,41 @@ void initialize_entity_state_logging(
             .unit = "m/s",
             .axis_key = "simulation_time"
         });
+
+        layout.entities.push_back(handles);
     }
+
+    return layout;
 }
 
 
 void log_entity_states(
     const std::vector<Entity>& entities,
+    const LoggingLayout& layout,
     double time_s,
     Result& result
 )
 {
-    // Initialization guarantees that the first axis is the shared simulation clock.
-    result.axes[0].values.push_back(time_s);
+    result.axes[layout.simulation_time_axis].values.push_back(time_s);
 
     for (std::size_t index = 0; index < entities.size(); ++index)
     {
         const Entity& entity = entities[index];
+        const EntityLoggingHandles& handles = layout.entities[index];
 
-        // Each entity owns three consecutive vectors in its initialization order.
-        const std::size_t vector_index = index * 3;
-
-        result.vectors[vector_index].values.push_back(entity.kinematics.pos_m);
-        result.vectors[vector_index + 1].values.push_back(entity.kinematics.vel_mps);
-        result.vectors[vector_index + 2].values.push_back(entity.kinematics.accel_mps2);
+        result.vectors[handles.position_series].values.push_back(
+            entity.kinematics.pos_m
+        );
+        result.vectors[handles.velocity_series].values.push_back(
+            entity.kinematics.vel_mps
+        );
+        result.vectors[handles.acceleration_series].values.push_back(
+            entity.kinematics.accel_mps2
+        );
 
         // Convert the three velocity components into the scalar speed magnitude.
         const Vec3& velocity = entity.kinematics.vel_mps;
-        result.scalars[index].values.push_back(
+        result.scalars[handles.speed_series].values.push_back(
             std::sqrt(
                 velocity.x * velocity.x +
                 velocity.y * velocity.y +

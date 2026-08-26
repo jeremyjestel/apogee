@@ -357,6 +357,11 @@ PYBIND11_MODULE(apogee, m)
         .def_readwrite("kind", &Axis::kind)
         .def_readwrite("values", &Axis::values);
 
+    py::class_<Presentation>(m, "Presentation")
+        .def(py::init<>())
+        .def_readwrite("group", &Presentation::group)
+        .def_readwrite("order", &Presentation::order);
+
     py::class_<ScalarSeries>(m, "ScalarSeries")
         .def(py::init<>())
         .def_readwrite("entity_id", &ScalarSeries::entity_id)
@@ -365,7 +370,35 @@ PYBIND11_MODULE(apogee, m)
         .def_readwrite("name", &ScalarSeries::name)
         .def_readwrite("unit", &ScalarSeries::unit)
         .def_readwrite("axis_key", &ScalarSeries::axis_key)
-        .def_readwrite("values", &ScalarSeries::values);
+        .def_readwrite("values", &ScalarSeries::values)
+        .def_readwrite("presentation", &ScalarSeries::presentation);
+
+    py::class_<Curve1D>(m, "Curve1D")
+        .def(py::init<>())
+        .def_readwrite("entity_id", &Curve1D::entity_id)
+        .def_readwrite("system", &Curve1D::system)
+        .def_readwrite("key", &Curve1D::key)
+        .def_readwrite("name", &Curve1D::name)
+        .def_readwrite("x_axis", &Curve1D::x_axis)
+        .def_readwrite("value_unit", &Curve1D::value_unit)
+        .def_readwrite("values", &Curve1D::values)
+        .def_readwrite("presentation", &Curve1D::presentation);
+
+    py::class_<Metric>(m, "Metric")
+        .def(py::init<>())
+        .def_readwrite("key", &Metric::key)
+        .def_readwrite("name", &Metric::name)
+        .def_readwrite("unit", &Metric::unit)
+        .def_readwrite("value", &Metric::value);
+
+    py::class_<Snapshot>(m, "Snapshot")
+        .def(py::init<>())
+        .def_readwrite("entity_id", &Snapshot::entity_id)
+        .def_readwrite("system", &Snapshot::system)
+        .def_readwrite("key", &Snapshot::key)
+        .def_readwrite("name", &Snapshot::name)
+        .def_readwrite("metrics", &Snapshot::metrics)
+        .def_readwrite("presentation", &Snapshot::presentation);
 
     py::class_<VectorSeries3>(m, "VectorSeries3")
         .def(py::init<>())
@@ -376,7 +409,8 @@ PYBIND11_MODULE(apogee, m)
         .def_readwrite("unit", &VectorSeries3::unit)
         .def_readwrite("frame", &VectorSeries3::frame)
         .def_readwrite("axis_key", &VectorSeries3::axis_key)
-        .def_readwrite("values", &VectorSeries3::values);
+        .def_readwrite("values", &VectorSeries3::values)
+        .def_readwrite("presentation", &VectorSeries3::presentation);
 
     py::class_<Grid2D>(m, "Grid2D")
         .def(py::init<>())
@@ -392,13 +426,16 @@ PYBIND11_MODULE(apogee, m)
         .def_readwrite("values", &Grid2D::values)
         .def_readwrite("has_display_range", &Grid2D::has_display_range)
         .def_readwrite("display_min", &Grid2D::display_min)
-        .def_readwrite("display_max", &Grid2D::display_max);
+        .def_readwrite("display_max", &Grid2D::display_max)
+        .def_readwrite("presentation", &Grid2D::presentation);
 
     py::class_<Result>(m, "Result")
         .def(py::init<>())
         .def_readwrite("entities", &Result::entities)
         .def_readwrite("axes", &Result::axes)
         .def_readwrite("scalars", &Result::scalars)
+        .def_readwrite("curves", &Result::curves)
+        .def_readwrite("snapshots", &Result::snapshots)
         .def_readwrite("vectors", &Result::vectors)
         .def_readwrite("grids", &Result::grids);
 
@@ -407,6 +444,7 @@ PYBIND11_MODULE(apogee, m)
         "run_sim",
         &run_sim,
         py::arg("params"),
+        py::call_guard<py::gil_scoped_release>(),
         "Run the simulation with the given parameters."
     );
 }

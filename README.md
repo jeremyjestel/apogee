@@ -37,6 +37,10 @@ Python visualization adapter
 Rerun Viewer
 ```
 
+See [Adding analysis visualizations](docs/analysis-visualizations.md) for the
+short C++ workflow that automatically creates analysis tabs, plots, and raw-data
+records.
+
 The headers `src/cpp/params.hpp` and those under `src/cpp/core/` define
 reusable, entity-agnostic data shapes such as `SimulationParams`, `RadarParams`,
 and `EntityDefinition`. The files under `src/cpp/scenarios/default/` contain the
@@ -70,7 +74,7 @@ up the field automatically for each entity that owns that component.
 ```powershell
 conda env create -f environment.yml
 conda activate apogee
-cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE="$PWD/vcpkg/scripts/buildsystems/vcpkg.cmake"
+cmake -S . -B build -DCMAKE_PREFIX_PATH="$env:CONDA_PREFIX"
 cmake --build build --config Release
 ```
 

@@ -5,7 +5,7 @@
 
 #include "core/constants.hpp"
 
-std::tuple<double, double, double, double> radar_snr_db(
+RadarEquationResult radar_snr_db(
     const RadarParams& radar,
     double target_rcs_dbsm,
     double range_m
@@ -34,5 +34,10 @@ std::tuple<double, double, double, double> radar_snr_db(
 
     const double snr_lin = received_power_w / noise_power_w;
     const double snr_db = 10 * std::log10(snr_lin);
-    return {received_power_w, noise_power_w, snr_lin, snr_db};
+    return RadarEquationResult{
+        .received_power_w = received_power_w,
+        .noise_power_w = noise_power_w,
+        .snr_linear = snr_lin,
+        .snr_db = snr_db
+    };
 }

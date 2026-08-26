@@ -37,26 +37,26 @@ void radar_range_analysis(
             target_radar_cross_section_dbsm,
             range_m
         );
-        snr_db.push_back(std::get<3>(radar_equation_result));
+        snr_db.push_back(radar_equation_result.snr_db);
     }
 
-    // Publish one shared range axis and its associated scalar analysis series.
-    constexpr const char* axis_key = "radar_range_km";
-
-    result.axes.push_back(Axis{
-        .key = axis_key,
-        .name = "Range",
-        .unit = "km",
-        .kind = "continuous",
-        .values = std::move(ranges_km)
-    });
-    result.scalars.push_back(ScalarSeries{
+    // Publish a self-contained static analysis curve.
+    result.curves.push_back(Curve1D{
         .entity_id = entity_id,
         .system = "radar",
         .key = "snr",
         .name = "SNR",
-        .unit = "dB",
-        .axis_key = axis_key,
-        .values = std::move(snr_db)
+        .x_axis = Axis{
+            .key = "radar_range_km",
+            .name = "Range",
+            .unit = "km",
+            .kind = "continuous",
+            .values = std::move(ranges_km)
+        },
+        .value_unit = "dB",
+        .values = std::move(snr_db),
+        .presentation = Presentation{
+            .order = 10
+        }
     });
 }
