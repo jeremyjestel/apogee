@@ -1,4 +1,6 @@
 from add_build_to_path import add_apogee_build_to_path
+import os
+os.environ["WGPU_BACKEND"] = "gl"
 
 # Make the compiled binding importable before loading modules that depend on it.
 add_apogee_build_to_path()
