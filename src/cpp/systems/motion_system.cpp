@@ -1,6 +1,6 @@
 #include "motion_system.hpp"
 
-void update_kinematics(KinematicState& state, double dt_s)
+void advance_kinematics(KinematicState& state, double dt_s)
 {
     // Advance position using the velocity at the start of the time step.
     state.pos_m.x += state.vel_mps.x * dt_s;

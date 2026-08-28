@@ -7,7 +7,7 @@
 #include "core/constants.hpp"
 #include "math/radar_range_equation.hpp"
 
-void radar_range_analysis(
+void add_snr_range_curve(
     const RadarParams& radar,
     double target_radar_cross_section_dbsm,
     const RadarAnalysisParams& analysis,
@@ -32,7 +32,7 @@ void radar_range_analysis(
         const double range_m = static_cast<double>(index) * range_step_m;
 
         ranges_km.push_back(range_m / constants::meters_per_kilometer);
-        const auto radar_equation_result = radar_snr_db(
+        const auto radar_equation_result = radar_range_equation(
             radar,
             target_radar_cross_section_dbsm,
             range_m

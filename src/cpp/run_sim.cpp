@@ -1,17 +1,53 @@
 #include "run_sim.hpp"
 
+#include <algorithm>
 #include <cstddef>
 #include <optional>
+#include <stdexcept>
+#include <string>
 #include <utility>
 #include <vector>
 
 #include "analysis/radar_range.hpp"
 #include "core/entity.hpp"
-#include "core/entity_factory.hpp"
-#include "core/find_entity.hpp"
 #include "logging.hpp"
 #include "systems/motion_system.hpp"
 #include "systems/radar_system.hpp"
+
+namespace
+{
+Entity instantiate(const EntityDefinition& definition)
+{
+    Entity entity{
+        .id = definition.id,
+        .key = definition.key,
+        .display_name = definition.display_name,
+        .type = definition.type,
+        .team = definition.team,
+        .kinematics = definition.initial_kinematics,
+        .radar_signature_dbsm = definition.radar_signature_dbsm
+    };
+    if (definition.radar)
+    {
+        entity.radar.emplace(*definition.radar);
+    }
+    return entity;
+}
+
+Entity& require_entity(std::vector<Entity>& entities, const std::string& key)
+{
+    const auto match = std::find_if(
+        entities.begin(),
+        entities.end(),
+        [&](const Entity& entity) { return entity.key == key; }
+    );
+    if (match == entities.end())
+    {
+        throw std::invalid_argument("Scenario is missing entity: " + key);
+    }
+    return *match;
+}
+}
 
 Result run_sim(const ScenarioParams& params)
 {
@@ -23,12 +59,12 @@ Result run_sim(const ScenarioParams& params)
     entities.reserve(params.entities.size());
     for (const EntityDefinition& definition : params.entities)
     {
-        entities.push_back(instantiate_entity(definition));
+        entities.push_back(instantiate(definition));
     }
 
     // Select the fixed radar engagement by the entities' stable identities.
-    Entity& radar_entity = find_entity(entities, "blue_radar");
-    Entity& radar_target = find_entity(entities, "red_missile");
+    Entity& radar_entity = require_entity(entities, "blue_radar");
+    Entity& radar_target = require_entity(entities, "red_missile");
 
     // Create the result series before the timestep loop starts appending values.
     Result result;
@@ -36,7 +72,51 @@ Result run_sim(const ScenarioParams& params)
         entities,
         result
     );
-    std::optional<RangePulseProduct> latest_range_pulse;
+    std::optional<GridSeries2D> range_doppler_history;
+    MetricTable radar_state_history{
+        .entity_id = radar_entity.id,
+        .system = "radar",
+        .key = "state",
+        .name = "State Variables",
+        .time_axis = Axis{
+            .key = "simulation_time",
+            .name = "Time",
+            .unit = "s",
+            .kind = "time"
+        },
+        .metrics = {
+            MetricSeries{
+                .key = "target_range",
+                .name = "Target Range",
+                .unit = "m"
+            },
+            MetricSeries{
+                .key = "target_velocity",
+                .name = "Target Velocity",
+                .unit = "m/s"
+            },
+            MetricSeries{
+                .key = "signal_to_noise",
+                .name = "Signal-to-Noise Ratio",
+                .unit = "dB"
+            },
+            MetricSeries{
+                .key = "pulse_width",
+                .name = "Pulse Width",
+                .unit = "us",
+                .values = {radar_entity.radar->p.pw_us}
+            },
+            MetricSeries{
+                .key = "pulse_repetition_interval",
+                .name = "Pulse Repetition Interval",
+                .unit = "us",
+                .values = {radar_entity.radar->p.pri_us}
+            }
+        },
+        .presentation = Presentation{
+            .order = 30
+        }
+    };
 
     // Log the current state, advance motion, then update radar once per timestep.
     for (std::size_t step = 0;
@@ -48,70 +128,54 @@ Result run_sim(const ScenarioParams& params)
 
         for (Entity& entity : entities)
         {
-            update_kinematics(entity.kinematics, dt_s);
+            advance_kinematics(entity.kinematics, dt_s);
         }
 
-        if (auto range_pulse = radar_update(radar_entity, radar_target))
+        auto range_pulse = update_radar(radar_entity, radar_target);
+        const RadarState& radar_state = radar_entity.radar->state;
+        radar_state_history.time_axis.values.push_back(sim_time_s);
+        radar_state_history.metrics[0].values.push_back(
+            radar_state.target_range_m
+        );
+        radar_state_history.metrics[1].values.push_back(
+            radar_state.target_vel_mps
+        );
+        radar_state_history.metrics[2].values.push_back(
+            radar_state.signal_to_noise_db
+        );
+
+        if (range_pulse)
         {
-            latest_range_pulse = std::move(*range_pulse);
-        }
-    }
-
-    // Convert the most recent detectable product into one static analysis grid.
-    if (latest_range_pulse)
-    {
-        result.grids.push_back(make_noisy_range_doppler_grid(
-            *latest_range_pulse,
-            radar_entity.radar->p,
-            radar_entity.id
-        ));
-    }
-
-    // A snapshot represents labeled values directly, without a synthetic sample axis.
-    result.snapshots.push_back(Snapshot{
-        .entity_id = radar_entity.id,
-        .system = "radar",
-        .key = "state",
-        .name = "State Variables",
-        .metrics = {
-            Metric{
-                .key = "target_range",
-                .name = "Target Range",
-                .unit = "m",
-                .value = radar_entity.radar->state.target_range_m
-            },
-            Metric{
-                .key = "target_velocity",
-                .name = "Target Velocity",
-                .unit = "m/s",
-                .value = radar_entity.radar->state.target_vel_mps
-            },
-            Metric{
-                .key = "signal_to_noise",
-                .name = "Signal-to-Noise Ratio",
-                .unit = "dB",
-                .value = radar_entity.radar->state.signal_to_noise_db
-            },
-            Metric{
-                .key = "pulse_width",
-                .name = "Pulse Width",
-                .unit = "us",
-                .value = radar_entity.radar->p.pw_us
-            },
-            Metric{
-                .key = "pulse_repetition_interval",
-                .name = "Pulse Repetition Interval",
-                .unit = "us",
-                .value = radar_entity.radar->p.pri_us
+            GridSeries2D frame = make_noisy_range_doppler_series(
+                *range_pulse,
+                radar_entity.radar->p,
+                radar_entity.id,
+                sim_time_s
+            );
+            if (!range_doppler_history)
+            {
+                range_doppler_history = std::move(frame);
             }
-        },
-        .presentation = Presentation{
-            .order = 30
+            else
+            {
+                range_doppler_history->time_axis.values.push_back(sim_time_s);
+                range_doppler_history->values.insert(
+                    range_doppler_history->values.end(),
+                    frame.values.begin(),
+                    frame.values.end()
+                );
+            }
         }
-    });
+    }
+
+    if (range_doppler_history)
+    {
+        result.grid_series.push_back(std::move(*range_doppler_history));
+    }
+    result.metric_tables.push_back(std::move(radar_state_history));
 
     // Run non-timestep analysis after the scenario history is complete.
-    radar_range_analysis(
+    add_snr_range_curve(
         radar_entity.radar->p,
         radar_target.radar_signature_dbsm,
         params.radar_analysis,

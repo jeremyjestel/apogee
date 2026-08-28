@@ -22,9 +22,10 @@ std::optional<RangePulseProduct> range_doppler_map(
     double target_rcs_dbsm
 );
 
-// Convert one completed domain product into the visualization-neutral grid DTO.
-Grid2D make_noisy_range_doppler_grid(
+// Convert one completed domain product into a one-frame analysis series.
+GridSeries2D make_noisy_range_doppler_series(
     const RangePulseProduct& product,
     const RadarParams& radar,
-    int radar_entity_id
+    int radar_entity_id,
+    double time_s
 );

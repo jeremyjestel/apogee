@@ -11,17 +11,11 @@ find_package(Eigen3 CONFIG REQUIRED)
 pybind11_add_module(apogee
     src/cpp/bindings.cpp
     src/cpp/analysis/radar_range.cpp
-    src/cpp/core/entity_factory.cpp
-    src/cpp/core/find_entity.cpp
     src/cpp/logging.cpp
     src/cpp/math/relative_kinematics.cpp
     src/cpp/math/radar_range_equation.cpp
     src/cpp/run_sim.cpp
-    src/cpp/scenarios/default/blue_interceptor.cpp
-    src/cpp/scenarios/default/blue_radar.cpp
-    src/cpp/scenarios/default/blue_satellite.cpp
     src/cpp/scenarios/default/default_scenario.cpp
-    src/cpp/scenarios/default/red_missile.cpp
     src/cpp/systems/motion_system.cpp
     src/cpp/systems/radar_system.cpp
     src/cpp/systems/range_doppler_map.cpp

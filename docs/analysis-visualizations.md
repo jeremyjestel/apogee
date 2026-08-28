@@ -1,121 +1,83 @@
 # Adding analysis visualizations
 
-Analysis code publishes semantic data to `Result`; it does not construct Rerun
-views. The Python `ViewCatalog` validates each item once, then drives both result
-logging and tab creation. Using an existing result type therefore requires no
-Python visualization changes.
+Calculations publish semantic data to C++ `Result`. They never construct Qt,
+Matplotlib, or Rerun objects.
 
-## Choose the data shape
+## Choose one of three shapes
 
-| Type | Use it for | Rerun presentation |
+| Result type | Use it for | Presentation |
 | --- | --- | --- |
-| `Curve1D` | A static Y-versus-X result such as SNR versus range | Labeled 2D plot |
-| `Grid2D` | A scalar field such as range versus pulse or Doppler | Labeled heatmap and colorbar |
-| `Snapshot` | Related scalar values captured at one point in the run | Markdown value table |
+| `Curve1D` | Static Y-versus-X results | Matplotlib line plot |
+| `GridSeries2D` | One or more time-indexed 2D scalar fields | Heatmap with time controls |
+| `MetricTable` | Related scalar metrics, constant or time-indexed | Qt table with time controls |
 
-`ScalarSeries` and `VectorSeries3` remain appropriate for sampled timelines and
-3D data. Do not represent a static curve or a state table with a synthetic time
-axis; use `Curve1D` or `Snapshot` instead.
+Timeline scene data uses `ScalarSeries` or `VectorSeries3` instead and is sent
+to Rerun automatically.
 
-## Minimal producer workflow
+## Adding a calculation
 
-1. Compute the analysis in C++.
-2. Append one semantic item to the matching `Result` collection.
-3. Rebuild the extension and run normally.
+1. Perform the calculation in C++.
+2. Append its result to `result.curves`, `result.grid_series`, or
+   `result.metric_tables`.
+3. Rebuild and run.
 
-For example, a self-contained curve needs only:
+Python's analysis catalog normalizes all products in those collections. The
+renderer registry selects the existing view from the product shape. No path,
+tab, serialization, or Rerun changes are required.
 
-```cpp
-result.curves.push_back(Curve1D{
-    .entity_id = radar_entity_id,
-    .system = "radar",
-    .key = "detection_probability",
-    .name = "Detection Probability",
-    .x_axis = Axis{
-        .key = "snr_db",
-        .name = "SNR",
-        .unit = "dB",
-        .kind = "continuous",
-        .values = std::move(snr_db)
-    },
-    .value_unit = "%",
-    .values = std::move(probability_percent),
-    .presentation = Presentation{
-        .group = "Detection",
-        .order = 40
-    }
-});
-```
+Every product supplies:
 
-The existing SNR producer in `src/cpp/analysis/radar_range.cpp` is a complete
-`Curve1D` example. The radar state snapshot in `src/cpp/run_sim.cpp` and the
-range-pulse conversion in `src/cpp/systems/range_doppler_map.cpp` show the other
-two shapes.
+- `entity_id`: owner, or `0` for global analysis
+- `system`: subsystem grouping
+- `key`: stable machine identity
+- `name`: user-facing title
+- `presentation.group`: optional navigator subgroup
+- `presentation.order`: optional display order
 
-For a `Snapshot`, put each labeled value in a `Metric` and append the snapshot to
-`result.snapshots`. For a `Grid2D`, store values in row-major order and maintain
-these invariants:
+The tuple `(entity_id, system, key)` must be unique.
+
+## Shape contracts
+
+### Curve1D
 
 ```text
-values.size() == rows * columns
+values.size() == x_axis.values.size()
+```
+
+Use it for a completed parameter sweep such as SNR versus range. Do not add a
+synthetic time axis to a static curve.
+
+### GridSeries2D
+
+Values contain consecutive row-major frames:
+
+```text
+values.size() == time_axis.values.size() * rows * columns
 x_axis.values.size() == columns
 y_axis.values.size() == rows
 ```
 
-Set `has_display_range`, `display_min`, and `display_max` only when the heatmap
-needs a fixed color scale; otherwise its scale is inferred from the values.
+A static grid is one frame. Always use one series rather than one product per
+timestep; the navigator remains compact and the renderer updates one mesh.
 
-## Naming and automatic layout
+### MetricTable
 
-- `entity_id` selects the owner tab. Use `0` for a global analysis.
-- `system` groups the data path by producing subsystem.
-- `key` is the stable, machine-facing product identifier.
-- `name` and units are display metadata.
-- `presentation.order` optionally orders products across all result types.
-- `presentation.group` optionally creates one additional nested tab level.
+Each `MetricSeries.values` contains either:
 
-The combination of owner, `system`, and `key` must be unique. A nonempty analysis
-item automatically appears at:
+- one constant value for the complete run, or
+- one value per `MetricTable.time_axis` sample.
 
-```text
-Analysis → <Entity display name | Global> → <Product name>
-```
+This allows a single state table to combine time-varying target range/SNR with
+constant parameters such as PW and PRI.
 
-Each product receives a full-size tab. The catalog chooses the correct view and
-the adapter chooses the correct logger from the semantic type, so neither the
-blueprint nor the adapter needs product-specific conditionals.
+## Adding a genuinely new shape
 
-Leave `Presentation` at its defaults when the catalog's stable type order is
-sufficient. Order `0` means automatic placement after explicitly ordered
-products. Use sparse nonzero values such as 10, 20, and 30 so later products fit
-between them. Products with the same nonempty group are collected into a nested
-tab set; the group is ordered by its first product.
+Only introduce another result type when these three cannot represent the data
+faithfully. The extension points are deliberately small:
 
-## Rendered and machine-readable data
+1. Define and bind the C++ DTO.
+2. Add one normalizer in `analysis/catalog.py`.
+3. Add one widget factory to `RENDERERS` in `analysis/renderers.py`.
 
-Static analysis products are recorded below one stable base path:
-
-```text
-/analysis/entities/<owner>/<system>/<key>/plot
-/analysis/entities/<owner>/<system>/<key>/data
-```
-
-`/plot` contains the rendered chart, heatmap, or table used by the tab. Static
-charts and heatmaps are stored as lossless PNGs to keep large recordings
-compact. `/data` contains a native Rerun tensor; its axis and metadata children
-retain physical coordinates, labels, and units. Telemetry stays in Rerun's
-native timeline form and receives the same queryable metadata. Keep calculations
-and full-precision values in the semantic result object; presentation-only
-choices belong in the renderer. This separation allows future exports,
-alternate renderers, and inspection without recomputing the analysis.
-
-Time axes may use `s`, `ms`, `us`, or `ns`; the adapter normalizes them to
-seconds for Rerun while preserving the declared unit in raw metadata. Sequence
-axes must contain integer values. Grid coordinate axes must be strictly
-monotonic.
-
-Only introduce a new result type when the data cannot be expressed faithfully as
-a curve, grid, snapshot, scalar timeline, or 3D series. A genuinely new shape
-requires a C++ DTO and binding, one product reader in `view_catalog.py`, and one
-logger in `rerun_adapter.py`; the generic blueprint does not change. Individual
-products of an existing shape require none of those Python changes.
+The navigator and unified application shell require no changes. Rerun requires
+changes only for genuine scene or timeline telemetry.
