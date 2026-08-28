@@ -1,20 +1,36 @@
-import queue
+from __future__ import annotations
+
+import sys
 import threading
-import tkinter as tk
-from tkinter import messagebox, ttk
 
 import apogee
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtWidgets import (
+    QApplication,
+    QFrame,
+    QGridLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMainWindow,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QTabWidget,
+    QVBoxLayout,
+    QWidget,
+)
 
-from visualization import save_result
-from visualization.viewer_session import ViewerSession
+from analysis import AnalysisWorkspace, build_analysis_catalog
+from visualization import view_rerun
 
 
-# Let C++ remain the single source of truth for parameter names, units, and paths.
+# C++ remains the source of truth for parameter names, units, paths, and defaults.
 PARAMETER_SPECS = apogee.parameter_specs()
 
 
 def default_parameter_values():
-    # Read defaults from a fresh scenario so the form mirrors C++ initialization.
     params = apogee.Params()
     return {
         spec.path: str(apogee.get_parameter(params, spec.path))
@@ -23,7 +39,6 @@ def default_parameter_values():
 
 
 def create_params_from_text(values):
-    # Build a fresh scenario and apply every text-box value through the C++ path API.
     params = apogee.Params()
     for spec in PARAMETER_SPECS:
         apogee.set_parameter(params, spec.path, float(values[spec.path]))
@@ -31,206 +46,200 @@ def create_params_from_text(values):
 
 
 def _parameter_groups():
-    # Preserve specification order while collecting fields under their UI headings.
     groups = {}
     for spec in PARAMETER_SPECS:
         groups.setdefault(spec.group, []).append(spec)
     return groups.items()
 
 
-class ParameterWindow:
-    def __init__(self, root):
-        self.root = root
+class ParameterWindow(QMainWindow):
+    """One application shell for configuration and post-run analysis."""
+
+    _run_finished = Signal(object, object)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
         self.entries = {}
-        self.viewer_session = ViewerSession()
-        self.run_thread = None
-        self.run_messages = queue.SimpleQueue()
-        self.cancel_run = threading.Event()
+        self._run_thread = None
+        self._cancel_run = threading.Event()
+        self._run_finished.connect(self._simulation_finished)
 
-        root.title("Apogee Simulation Parameters")
-        root.geometry("720x820")
-        root.minsize(560, 500)
-        root.after_idle(lambda: root.state("zoomed"))
-        root.protocol("WM_DELETE_WINDOW", self._close)
+        self.setWindowTitle("Apogee")
+        self.resize(1280, 820)
+        self.setMinimumSize(720, 560)
 
-        self._build_parameter_form()
-
-        footer = ttk.Frame(root, padding=10)
-        footer.pack(fill="x")
-        footer.columnconfigure(0, weight=1)
-
-        self.status = ttk.Label(footer, text="Ready")
-        self.status.grid(row=0, column=0, sticky="w")
-
-        self.run_button = ttk.Button(
-            footer,
-            text="Run Simulation",
-            command=self.run_simulation,
+        self.tabs = QTabWidget()
+        self._parameter_tab = self._build_parameter_tab()
+        self._analysis_tab = self._build_analysis_tab()
+        self.tabs.addTab(self._parameter_tab, "Parameters")
+        self._analysis_tab_index = self.tabs.addTab(
+            self._analysis_tab,
+            "Analysis",
         )
-        self.run_button.grid(row=0, column=1)
+        self.setCentralWidget(self.tabs)
+        self._apply_theme()
 
-    def _build_parameter_form(self):
-        # Place the generated form inside a canvas so a long parameter list can scroll.
-        container = ttk.Frame(self.root)
-        container.pack(fill="both", expand=True)
+    def _build_parameter_tab(self):
+        page = QWidget()
+        page_layout = QVBoxLayout(page)
+        page_layout.setContentsMargins(12, 12, 12, 12)
 
-        canvas = tk.Canvas(container, highlightthickness=0)
-        scrollbar = ttk.Scrollbar(container, orient="vertical", command=canvas.yview)
-        form = ttk.Frame(canvas, padding=12)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        form = QWidget()
+        form_layout = QVBoxLayout(form)
+        form_layout.setContentsMargins(0, 0, 0, 0)
+        form_layout.setSpacing(10)
 
-        canvas.configure(yscrollcommand=scrollbar.set)
-        scrollbar.pack(side="right", fill="y")
-        canvas.pack(side="left", fill="both", expand=True)
-
-        # Keep the canvas scroll bounds and embedded form width synchronized as it resizes.
-        form_window = canvas.create_window((0, 0), window=form, anchor="nw")
-        form.bind(
-            "<Configure>",
-            lambda event: canvas.configure(scrollregion=canvas.bbox("all")),
-        )
-        canvas.bind(
-            "<Configure>",
-            lambda event: canvas.itemconfigure(form_window, width=event.width),
-        )
-        def scroll_form(event):
-            canvas.yview_scroll(-event.delta // 120, "units")
-
-        canvas.bind(
-            "<Enter>",
-            lambda event: self.root.bind_all("<MouseWheel>", scroll_form),
-        )
-        canvas.bind(
-            "<Leave>",
-            lambda event: self.root.unbind_all("<MouseWheel>"),
-        )
-
-        form.columnconfigure(0, weight=1)
-        form.columnconfigure(2, weight=1)
-
-        ttk.Label(form, text="Parameter").grid(row=0, column=0, sticky="w")
-        ttk.Label(form, text="Unit").grid(row=0, column=1, padx=12)
-        ttk.Label(form, text="Value for next run").grid(
-            row=0,
-            column=2,
-            sticky="ew",
-        )
-
-        # Generate one labeled entry for every parameter exposed by the binding.
         defaults = default_parameter_values()
-        row = 1
         for group_name, specs in _parameter_groups():
-            ttk.Separator(form).grid(
-                row=row,
-                column=0,
-                columnspan=3,
-                sticky="ew",
-                pady=(12, 6),
-            )
-            row += 1
-            ttk.Label(form, text=group_name, font=("Segoe UI", 11, "bold")).grid(
-                row=row,
-                column=0,
-                columnspan=3,
-                sticky="w",
-                pady=(0, 5),
-            )
-            row += 1
+            group = QGroupBox(group_name)
+            grid = QGridLayout(group)
+            grid.setColumnStretch(0, 1)
+            grid.setColumnStretch(2, 1)
+            grid.addWidget(QLabel("Parameter"), 0, 0)
+            grid.addWidget(QLabel("Unit"), 0, 1)
+            grid.addWidget(QLabel("Value for next run"), 0, 2)
 
-            for spec in specs:
-                ttk.Label(form, text=spec.name).grid(
-                    row=row,
-                    column=0,
-                    sticky="w",
-                    pady=2,
-                )
-                ttk.Label(form, text=spec.unit).grid(row=row, column=1, padx=12)
+            for row, spec in enumerate(specs, start=1):
+                grid.addWidget(QLabel(spec.name), row, 0)
+                unit = QLabel(spec.unit or "—")
+                unit.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                grid.addWidget(unit, row, 1)
+                entry = QLineEdit(defaults[spec.path])
+                grid.addWidget(entry, row, 2)
+                self.entries[spec.path] = entry
 
-                value = tk.StringVar(value=defaults[spec.path])
-                ttk.Entry(form, textvariable=value).grid(
-                    row=row,
-                    column=2,
-                    sticky="ew",
-                    pady=2,
-                )
-                self.entries[spec.path] = value
-                row += 1
+            form_layout.addWidget(group)
+
+        form_layout.addStretch(1)
+        scroll.setWidget(form)
+        page_layout.addWidget(scroll, 1)
+
+        footer = QHBoxLayout()
+        self.status = QLabel("Ready")
+        footer.addWidget(self.status, 1)
+        self.run_button = QPushButton("Run Simulation")
+        self.run_button.clicked.connect(self.run_simulation)
+        footer.addWidget(self.run_button)
+        page_layout.addLayout(footer)
+        return page
+
+    def _build_analysis_tab(self):
+        page = QWidget()
+        self._analysis_layout = QVBoxLayout(page)
+        self._analysis_layout.setContentsMargins(0, 0, 0, 0)
+        self._analysis_widget = QLabel(
+            "Run the simulation to populate analysis products."
+        )
+        self._analysis_widget.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._analysis_layout.addWidget(self._analysis_widget)
+        return page
+
+    def _apply_theme(self):
+        self.setStyleSheet(
+            "QMainWindow, QWidget { background: #f4f6f8; color: #18212b; }"
+            "QGroupBox { background: #ffffff; border: 1px solid #cbd3df; "
+            "border-radius: 4px; margin-top: 12px; padding-top: 8px; }"
+            "QGroupBox::title { subcontrol-origin: margin; left: 10px; "
+            "padding: 0 4px; color: #18212b; font-weight: 600; }"
+            "QLineEdit { background: #ffffff; color: #18212b; "
+            "border: 1px solid #aeb8c6; border-radius: 3px; padding: 5px; }"
+            "QLineEdit:focus { border-color: #286eff; }"
+            "QPushButton { background: #286eff; color: #ffffff; border: 0; "
+            "border-radius: 4px; padding: 7px 16px; font-weight: 600; }"
+            "QPushButton:hover { background: #1858d9; }"
+            "QPushButton:disabled { background: #9eabc0; }"
+            "QTabWidget::pane { border: 1px solid #cbd3df; }"
+            "QTabBar::tab { background: #e8edf4; color: #18212b; "
+            "padding: 8px 18px; border: 1px solid #cbd3df; }"
+            "QTabBar::tab:selected { background: #ffffff; "
+            "border-bottom-color: #ffffff; }"
+            "QScrollArea { border: 0; }"
+        )
 
     def run_simulation(self):
-        # Disable repeat submissions while this run is being prepared and displayed.
-        self.run_button.configure(state="disabled")
-        self.status.configure(text="Running simulation...")
-        values = {path: entry.get() for path, entry in self.entries.items()}
-        window_size = (
-            self.root.winfo_screenwidth(),
-            self.root.winfo_screenheight(),
-        )
-        self.cancel_run.clear()
-        self.run_thread = threading.Thread(
+        if self._run_thread is not None and self._run_thread.is_alive():
+            return
+
+        values = {path: entry.text() for path, entry in self.entries.items()}
+        try:
+            params = create_params_from_text(values)
+        except (KeyError, TypeError, ValueError) as error:
+            QMessageBox.critical(self, "Invalid parameters", str(error))
+            return
+
+        self.run_button.setEnabled(False)
+        self.status.setText("Running simulation…")
+        self._cancel_run.clear()
+        self._run_thread = threading.Thread(
             target=self._run_worker,
-            args=(values, window_size),
+            args=(params,),
             name="apogee-simulation",
             daemon=True,
         )
-        self.run_thread.start()
-        self.root.after(100, self._wait_for_simulation)
+        self._run_thread.start()
 
-    def _run_worker(self, values, window_size):
+    def _run_worker(self, params):
         try:
-            params = create_params_from_text(values)
             result = apogee.run_sim(params)
-            if self.cancel_run.is_set():
+            if self._cancel_run.is_set():
                 return
-            self.viewer_session.start(
-                lambda recording_path: save_result(result, recording_path),
-                window_size=window_size,
-            )
+            catalog = build_analysis_catalog(result)
+            if self._cancel_run.is_set():
+                return
+
+            rerun_error = None
+            try:
+                view_rerun(result)
+            except Exception as error:
+                rerun_error = error
         except Exception as error:
-            self.run_messages.put(error)
-            return
-        self.run_messages.put(None)
-
-    def _wait_for_simulation(self):
-        if self.run_thread.is_alive():
-            self.root.after(100, self._wait_for_simulation)
+            self._run_finished.emit(None, error)
             return
 
-        error = self.run_messages.get()
-        self.run_thread = None
+        self._run_finished.emit(catalog, rerun_error)
+
+    def _simulation_finished(self, catalog, error):
+        self._run_thread = None
+        self.run_button.setEnabled(True)
+
+        if catalog is None:
+            self.status.setText("Simulation failed")
+            QMessageBox.critical(self, "Simulation failed", str(error))
+            return
+
+        workspace = AnalysisWorkspace(catalog)
+        previous = self._analysis_widget
+        self._analysis_layout.replaceWidget(previous, workspace)
+        self._analysis_widget = workspace
+        previous.deleteLater()
+        self.tabs.setCurrentIndex(self._analysis_tab_index)
+        self.status.setText("Ready for another run")
+
         if error is not None:
-            self._restore_after_run()
-            messagebox.showerror("Simulation failed", str(error))
-            return
+            QMessageBox.warning(
+                self,
+                "Rerun unavailable",
+                f"Analysis is ready, but the scene viewer could not open:\n{error}",
+            )
 
-        # Hide this window while Rerun is open, then poll without blocking Tk.
-        self.root.withdraw()
-        self.root.after(250, self._wait_for_viewer)
-
-    def _wait_for_viewer(self):
-        # Reschedule the check until the external viewer process has exited.
-        if self.viewer_session.poll() is None:
-            self.root.after(250, self._wait_for_viewer)
-            return
-
-        # Restore the parameter form for quick changes and another run.
-        self._restore_after_run()
-        self.root.deiconify()
-        self.root.state("zoomed")
-        self.root.lift()
-        self.root.focus_force()
-
-    def _restore_after_run(self):
-        # Delete the temporary recording and reset all per-run UI state.
-        self.viewer_session.cleanup()
-        self.run_button.configure(state="normal")
-        self.status.configure(text="Ready for another run")
-
-    def _close(self):
-        self.cancel_run.set()
-        self.viewer_session.cleanup()
-        self.root.destroy()
+    def closeEvent(self, event):
+        self._cancel_run.set()
+        event.accept()
 
 
-def show_parameter_window():
-    root = tk.Tk()
-    ParameterWindow(root)
-    root.mainloop()
+def show_parameter_window(argv=None):
+    application = QApplication.instance()
+    owns_event_loop = application is None
+    if application is None:
+        application = QApplication(sys.argv if argv is None else argv)
+        application.setApplicationName("Apogee")
+        application.setOrganizationName("Apogee")
+
+    window = ParameterWindow()
+    window.showMaximized()
+    if owns_event_loop:
+        return application.exec()
+    return window

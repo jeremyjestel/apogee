@@ -1,27 +1,21 @@
-from pathlib import Path
+import socket
 
 import apogee
 import numpy as np
 import rerun as rr
 
-from .chart_renderer import encode_png, render_grid_chart, render_xy_chart
 from .rerun_blueprint import build_blueprint
 from .rerun_paths import (
-    axis_child,
     metadata_child,
     world_entity,
     world_trajectory,
     world_vector,
 )
-from .view_catalog import (
-    CURVE_SOURCE,
-    GRID_SOURCE,
+from .telemetry_catalog import (
     SCALAR_SOURCE,
-    SNAPSHOT_SOURCE,
-    VECTOR_SOURCE,
     TIME_UNIT_TO_SECONDS,
-    build_view_catalog,
-    validate_result,
+    VECTOR_SOURCE,
+    build_telemetry_catalog,
 )
 
 
@@ -44,9 +38,7 @@ VECTOR_DISPLAY_SCALES = {
 }
 
 
-def _time_column(axis, values=None):
-    if values is None:
-        values = axis.values
+def _time_column(axis, values):
     values = np.asarray(values, dtype=np.float64)
     if axis.kind == "sequence":
         return rr.TimeColumn(axis.key, sequence=values.astype(np.int64))
@@ -66,6 +58,7 @@ def _positions_on_axis(
     target_coordinates,
 ):
     """Align scenario arrow origins when a vector has its own timeline."""
+
     source = np.asarray(position_coordinates, dtype=np.float64).copy()
     target = np.asarray(target_coordinates, dtype=np.float64).copy()
     if position_axis.kind != target_axis.kind:
@@ -82,27 +75,9 @@ def _positions_on_axis(
     )
 
 
-def _log_xy_data(recording, view, x_values, y_values):
-    samples = np.column_stack((x_values, y_values)).astype(np.float64, copy=False)
-    recording.log(
-        view.data_path,
-        rr.Tensor(samples, dim_names=["sample", "component"]),
-        static=True,
-    )
-    recording.log(
-        metadata_child(view.data_path),
-        rr.AnyValues(
-            component_keys=[view.axis.key, view.item.key],
-            component_names=[view.axis.name, view.name],
-            component_units=[view.axis.unit, view.unit],
-        ),
-        static=True,
-    )
-
-
 def _log_series_metadata(recording, view, **extra):
     recording.log(
-        metadata_child(view.data_path),
+        metadata_child(view.path),
         rr.AnyValues(
             axis_key=view.axis.key,
             axis_name=view.axis.name,
@@ -124,7 +99,7 @@ def _entity_color(entity):
 
 def _log_entity_metadata(recording, entity):
     recording.log(
-        f"{world_entity(entity)}/metadata",
+        metadata_child(world_entity(entity)),
         rr.AnyValues(
             entity_id=entity.id,
             display_name=entity.display_name,
@@ -150,7 +125,7 @@ def _log_scenario(recording, catalog):
 
     vector_lookup = {
         (view.item.entity_id, view.item.system, view.item.key): view
-        for view in catalog.in_section("telemetry")
+        for view in catalog.views
         if view.source_type == VECTOR_SOURCE
     }
     for entity in catalog.entity_items:
@@ -208,12 +183,11 @@ def _log_scenario(recording, catalog):
                     f"Scenario vectors {position.key} and {series.key} use "
                     f"different frames"
                 )
-            series_axis = series_view.axis
             origins = _positions_on_axis(
                 position_axis,
                 position_view.coordinates,
                 positions,
-                series_axis,
+                series_view.axis,
                 series_view.coordinates,
             )
             path = world_vector(entity, series)
@@ -224,221 +198,49 @@ def _log_scenario(recording, catalog):
             )
             recording.send_columns(
                 path,
-                indexes=[_time_column(series_axis, series_view.coordinates)],
+                indexes=[_time_column(series_view.axis, series_view.coordinates)],
                 columns=rr.Arrows3D.columns(origins=origins, vectors=vectors),
             )
 
 
 def _log_scalar(recording, view):
-    values = view.values
-    color = _entity_color(view.entity)
     recording.log(
-        view.plot_path,
-        rr.SeriesLines(names=view.name, colors=[color]),
+        view.path,
+        rr.SeriesLines(names=view.name, colors=[_entity_color(view.entity)]),
         static=True,
     )
     recording.send_columns(
-        view.plot_path,
+        view.path,
         indexes=[_time_column(view.axis, view.coordinates)],
-        columns=rr.Scalars.columns(scalars=values),
+        columns=rr.Scalars.columns(scalars=view.values),
     )
-    if view.data_path != view.plot_path:
-        _log_xy_data(
-            recording,
-            view,
-            view.coordinates,
-            values,
-        )
-    else:
-        _log_series_metadata(recording, view)
+    _log_series_metadata(recording, view)
 
 
 def _log_vector(recording, view):
-    values = view.values
-    if view.section == "telemetry":
-        recording.log(
-            view.plot_path,
-            rr.SeriesLines(names=["X", "Y", "Z"], colors=XYZ_COLORS),
-            static=True,
-        )
-        recording.send_columns(
-            view.plot_path,
-            indexes=[_time_column(view.axis, view.coordinates)],
-            columns=rr.Scalars.columns(scalars=values),
-        )
-        _log_series_metadata(recording, view, frame=view.item.frame)
-        return
-
-    color = _entity_color(view.entity)
-    if len(values) == 1:
-        artifact = rr.Points3D(
-            values,
-            colors=[color],
-            radii=rr.Radius.ui_points(5.0),
-            labels=[view.name],
-        )
-    else:
-        artifact = rr.LineStrips3D(
-            [values],
-            colors=[color],
-            radii=rr.Radius.ui_points(2.0),
-            labels=[view.name],
-        )
-    recording.log(view.plot_path, artifact, static=True)
     recording.log(
-        view.data_path,
-        rr.Tensor(values, dim_names=["sample", "xyz"]),
+        view.path,
+        rr.SeriesLines(names=["X", "Y", "Z"], colors=XYZ_COLORS),
         static=True,
     )
-    recording.log(
-        axis_child(view.data_path, "sample"),
-        rr.Tensor(
-            view.coordinates,
-            dim_names=[view.axis.key],
-        ),
-        static=True,
+    recording.send_columns(
+        view.path,
+        indexes=[_time_column(view.axis, view.coordinates)],
+        columns=rr.Scalars.columns(scalars=view.values),
     )
     _log_series_metadata(recording, view, frame=view.item.frame)
-
-
-def _log_curve(recording, view):
-    values = view.values
-    color = _entity_color(view.entity)
-    chart = render_xy_chart(
-        view.coordinates,
-        values,
-        x_name=view.axis.name,
-        x_unit=view.axis.unit,
-        y_name=view.name,
-        y_unit=view.unit,
-        color=color,
-    )
-    recording.log(
-        view.plot_path,
-        rr.EncodedImage(contents=encode_png(chart), media_type="image/png"),
-        static=True,
-    )
-    _log_xy_data(
-        recording,
-        view,
-        view.coordinates,
-        values,
-    )
-
-
-def _log_grid(recording, view):
-    grid = view.item
-    values = view.values
-    x_values, y_values = view.coordinates
-    chart = render_grid_chart(
-        values,
-        x_values=x_values,
-        y_values=y_values,
-        title=grid.name,
-        x_name=grid.x_axis.name,
-        x_unit=grid.x_axis.unit,
-        y_name=grid.y_axis.name,
-        y_unit=grid.y_axis.unit,
-        value_unit=grid.value_unit,
-        value_min=grid.display_min if grid.has_display_range else None,
-        value_max=grid.display_max if grid.has_display_range else None,
-    )
-    recording.log(
-        view.plot_path,
-        rr.EncodedImage(contents=encode_png(chart), media_type="image/png"),
-        static=True,
-    )
-    recording.log(
-        view.data_path,
-        rr.Tensor(values, dim_names=[grid.y_axis.key, grid.x_axis.key]),
-        static=True,
-    )
-    recording.log(
-        axis_child(view.data_path, "x"),
-        rr.Tensor(
-            x_values,
-            dim_names=[grid.x_axis.key],
-        ),
-        static=True,
-    )
-    recording.log(
-        axis_child(view.data_path, "y"),
-        rr.Tensor(
-            y_values,
-            dim_names=[grid.y_axis.key],
-        ),
-        static=True,
-    )
-    recording.log(
-        metadata_child(view.data_path),
-        rr.AnyValues(
-            rows=int(grid.rows),
-            columns=int(grid.columns),
-            x_name=grid.x_axis.name,
-            x_unit=grid.x_axis.unit,
-            y_name=grid.y_axis.name,
-            y_unit=grid.y_axis.unit,
-            value_unit=grid.value_unit,
-        ),
-        static=True,
-    )
-
-
-def _snapshot_markdown(name, metrics):
-    lines = [
-        f"# {name}",
-        "",
-        "| State | Value | Unit |",
-        "| --- | ---: | --- |",
-    ]
-    for metric in metrics:
-        lines.append(
-            f"| {metric.name} | {float(metric.value):,.6g} | {metric.unit or '—'} |"
-        )
-    return "\n".join(lines)
-
-
-def _log_snapshot(recording, view):
-    snapshot = view.item
-    metrics = view.metadata
-    recording.log(
-        view.plot_path,
-        rr.TextDocument(
-            _snapshot_markdown(snapshot.name, metrics),
-            media_type=rr.MediaType.MARKDOWN,
-        ),
-        static=True,
-    )
-    recording.log(
-        view.data_path,
-        rr.Tensor(
-            view.values,
-            dim_names=["metric"],
-        ),
-        static=True,
-    )
-    recording.log(
-        metadata_child(view.data_path),
-        rr.AnyValues(
-            metric_keys=[metric.key for metric in metrics],
-            metric_names=[metric.name for metric in metrics],
-            metric_units=[metric.unit for metric in metrics],
-        ),
-        static=True,
-    )
 
 
 VIEW_LOGGERS = {
     SCALAR_SOURCE: _log_scalar,
     VECTOR_SOURCE: _log_vector,
-    CURVE_SOURCE: _log_curve,
-    GRID_SOURCE: _log_grid,
-    SNAPSHOT_SOURCE: _log_snapshot,
 }
 
 
 def _log_result(result, recording, blueprint=None):
-    catalog = build_view_catalog(result)
+    """Log only the scene and timeline telemetry from a simulation result."""
+
+    catalog = build_telemetry_catalog(result)
     if blueprint is None:
         blueprint = build_blueprint(catalog)
 
@@ -450,15 +252,15 @@ def _log_result(result, recording, blueprint=None):
     recording.flush()
 
 
-def save_result(result, path):
-    output_path = Path(path).resolve()
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+def view_rerun(result):
+    """Open a detached viewer and send one completed scene and telemetry result."""
 
+    with socket.socket() as available_port:
+        available_port.bind(("127.0.0.1", 0))
+        port = available_port.getsockname()[1]
     recording = rr.RecordingStream(APPLICATION_ID)
     try:
-        recording.save(str(output_path))
+        recording.spawn(port=port, hide_welcome_screen=True)
         _log_result(result, recording)
     finally:
         recording.disconnect()
-
-    return output_path

@@ -7,8 +7,8 @@ from parameter_window import show_parameter_window
 
 
 def main():
-    show_parameter_window()
+    return show_parameter_window()
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

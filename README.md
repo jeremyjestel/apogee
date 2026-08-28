@@ -1,73 +1,46 @@
 # APOGEE
 
-APOGEE is a fixed-scenario missile-defense simulation with four entities:
-
-- Blue ground radar
-- Blue satellite
-- Red missile
-- Blue interceptor
-
-The simulation uses a global Earth-centered inertial (ECI) Cartesian frame and
-a fixed timestep. C++ owns parameters, simulation state, systems, analyses, and
-result generation. Python provides the parameter window and sends completed
-results to Rerun.
-
-## Current features
-
-- Editable parameters generated from the C++ parameter schema
-- Position, velocity, acceleration, and speed histories for all four entities
-- Simple fixed-step kinematic motion
-- Radar SNR-versus-range analysis
-- Rerun scenario, telemetry, continuous-analysis, 3D-analysis, and grid views
-- Range-Doppler processing under active development
+APOGEE is a C++ missile-defense simulation with a lightweight Python
+visualization application. The current scenario contains a blue ground radar,
+blue satellite, red missile, and blue interceptor in an Earth-centered inertial
+frame.
 
 ## Architecture
 
 ```text
-Generic parameter and component structs
-    +
-Default scenario entity definitions
-    ↓
-ScenarioParams → runtime entities → systems and analyses
-    ↓
-Result → scalar, vector, and grid data
-    ↓
-Python visualization adapter
-    ↓
-Rerun Viewer
+PySide parameter form
+        ↓
+ScenarioParams → C++ simulation and preprocessing → Result
+                                                  ├─ scene + timeline telemetry
+                                                  │          ↓
+                                                  │    Rerun Viewer
+                                                  └─ analysis products
+                                                             ↓
+                                                   PySide + Matplotlib
 ```
 
-See [Adding analysis visualizations](docs/analysis-visualizations.md) for the
-short C++ workflow that automatically creates analysis tabs, plots, and raw-data
-records.
+The simulation always completes before either viewer is populated. There is no
+live simulation protocol, temporary analysis bundle, recording file, or second
+analysis process.
 
-The headers `src/cpp/params.hpp` and those under `src/cpp/core/` define
-reusable, entity-agnostic data shapes such as `SimulationParams`, `RadarParams`,
-and `EntityDefinition`. The files under `src/cpp/scenarios/default/` contain the
-actual values for the blue radar, blue satellite, red missile, and blue
-interceptor, then assemble them into one `ScenarioParams` object.
+C++ owns parameters, calculations, and visualization-neutral results. Python
+only adapts a completed `Result`:
 
-`run_sim.cpp` converts each definition into a runtime `Entity`. Every entity has
-a `KinematicState` and a scalar radar signature; only the blue radar definition
-contains a `RadarParams` component. Systems update the runtime state, while
-analyses add separate result series. The fixed scenario does not need a
-registry or `World` abstraction.
+- Rerun receives the 3D scene and scalar/vector timeline telemetry.
+- The Analysis tab renders curves, time-indexed grids, and metric tables.
 
-Each run creates a fresh `RadarModule`, recalculates its derived parameter
-values, and stores the resulting `RadarParams` snapshot as `const`. Systems can
-therefore use ordinary fields such as `pulse_width_s` without changing
-parameters during the run.
+Both adapters discover products from their semantic result collections, so a
+new calculation using an existing shape needs no viewer-specific wiring. See
+[Adding analysis visualizations](docs/analysis-visualizations.md).
 
-Parameter display names, units, and member metadata stay beside their generic
-C++ structs. Python requests `parameter_specs()` to build the form and uses
-`get_parameter()` and `set_parameter()` with paths such as
-`blue_radar.radar.frequency_hz`. This keeps Python independent of the nested
-C++ storage and makes the C++ scenario the single source of default values.
+## Current features
 
-To add another value to an existing component, add the member and its
-`parameter(...)` metadata to the generic parameter struct, then set the desired
-instance value in the relevant scenario entity file. The parameter window picks
-up the field automatically for each entity that owns that component.
+- Parameter form generated from the C++ schema
+- Fixed-step position, velocity, acceleration, and speed histories
+- Rerun scene playback and timeline telemetry
+- SNR-versus-range curve
+- Time-indexed range-Doppler heatmap
+- Time-indexed radar state table with singleton PW and PRI values
 
 ## Setup
 
@@ -78,7 +51,11 @@ cmake -S . -B build -DCMAKE_PREFIX_PATH="$env:CONDA_PREFIX"
 cmake --build build --config Release
 ```
 
-After changing C++ code, rebuild before running Python.
+To update an existing environment:
+
+```powershell
+conda env update -f environment.yml --prune
+```
 
 ## Run
 
@@ -86,18 +63,9 @@ After changing C++ code, rebuild before running Python.
 python src/python/main.py
 ```
 
-The parameter window hides while the Rerun Viewer is open and returns when the
-viewer closes.
-
-## Debug build
-
-```powershell
-$env:APOGEE_BUILD_CONFIG = "Debug"
-cmake --build build --config Debug
-python src/python/main.py
-```
-
-Clear the environment variable or set it to `Release` to use the Release build.
+The PySide application contains Parameters and Analysis tabs. A completed run
+replaces the Analysis workspace and opens a detached Rerun scene/telemetry
+viewer. Additional runs can be started without restarting the application.
 
 ## Tests
 
@@ -109,14 +77,14 @@ python -m pytest -q
 ## Source layout
 
 ```text
-src/cpp/core/              Shared data structures
-src/cpp/scenarios/default/ Four fixed entity definitions and scenario assembly
-src/cpp/systems/           Timestep-based simulation systems
-src/cpp/analysis/          Non-timestep analyses
-src/cpp/math/              Small reusable math helpers
-src/cpp/params.hpp         Generic parameter structs and field metadata
-src/cpp/run_sim.cpp        Scenario instantiation and simulation orchestration
-src/python/                Parameter UI and build loader
-src/python/visualization/  Rerun conversion and layout
-tests/                     End-to-end feature tests
+src/cpp/core/             Simulation and result data structures
+src/cpp/scenarios/        Scenario defaults
+src/cpp/systems/          Timestep calculations
+src/cpp/analysis/         Post-run calculations
+src/cpp/math/             Reusable numerical functions
+src/cpp/run_sim.cpp       Simulation orchestration
+src/python/parameter_window.py  Unified PySide application
+src/python/analysis/      Analysis normalization and renderers
+src/python/visualization/ Rerun scene and telemetry adapter
+tests/                    Contract and integration tests
 ```

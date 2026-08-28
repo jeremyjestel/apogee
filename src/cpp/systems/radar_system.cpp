@@ -2,7 +2,7 @@
 
 #include "systems/range_doppler_map.hpp"
 
-std::optional<RangePulseProduct> radar_update(
+std::optional<RangePulseProduct> update_radar(
     Entity& radar,
     const Entity& target
 )

@@ -60,23 +60,25 @@ struct Curve1D
     Presentation presentation;
 };
 
-// A metric is one labeled scalar value in an analysis snapshot.
-struct Metric
+// A metric series is either aligned with its table's time axis or is a
+// singleton value that remains constant for the complete run.
+struct MetricSeries
 {
     std::string key;
     std::string name;
     std::string unit;
-    double value = 0.0;
+    std::vector<double> values;
 };
 
-// A snapshot groups related scalar metrics captured at one point in a run.
-struct Snapshot
+// A metric table groups related scalar values under one optional timeline.
+struct MetricTable
 {
     int entity_id = 0;
     std::string system;
     std::string key;
     std::string name;
-    std::vector<Metric> metrics;
+    Axis time_axis;
+    std::vector<MetricSeries> metrics;
     Presentation presentation;
 };
 
@@ -94,13 +96,16 @@ struct VectorSeries3
     Presentation presentation;
 };
 
-// A row-major scalar field. x_axis has columns entries and y_axis has rows.
-struct Grid2D
+// A time-indexed row-major scalar field. Each frame contains rows * columns
+// values, with x_axis addressing columns and y_axis addressing rows. A static
+// grid is represented by one frame rather than a separate result type.
+struct GridSeries2D
 {
     int entity_id = 0;
     std::string system;
     std::string key;
     std::string name;
+    Axis time_axis;
     Axis x_axis;
     Axis y_axis;
     std::string value_unit;
@@ -120,7 +125,7 @@ struct Result
     std::vector<Axis> axes;
     std::vector<ScalarSeries> scalars;
     std::vector<Curve1D> curves;
-    std::vector<Snapshot> snapshots;
+    std::vector<MetricTable> metric_tables;
     std::vector<VectorSeries3> vectors;
-    std::vector<Grid2D> grids;
+    std::vector<GridSeries2D> grid_series;
 };

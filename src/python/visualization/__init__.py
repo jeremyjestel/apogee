@@ -1,3 +1,3 @@
-from .rerun_adapter import save_result
+from .rerun_adapter import view_rerun
 
-__all__ = ["save_result"]
+__all__ = ["view_rerun"]

@@ -4,9 +4,19 @@ import sysconfig
 from pathlib import Path
 
 
+_DLL_DIRECTORIES = []
+
+
 def add_apogee_build_to_path():
     """Add a current, interpreter-compatible Apogee build to ``sys.path``."""
     project_root = Path(__file__).resolve().parents[2]
+
+    # Direct interpreter launches do not inherit Conda's activated DLL search path.
+    if os.name == "nt" and not _DLL_DIRECTORIES:
+        library_bin = Path(sys.prefix) / "Library" / "bin"
+        if library_bin.is_dir():
+            _DLL_DIRECTORIES.append(os.add_dll_directory(str(library_bin)))
+            os.environ["PATH"] = f"{library_bin}{os.pathsep}{os.environ.get('PATH', '')}"
 
     # Normalize the requested CMake configuration to its on-disk directory name.
     requested_config = os.environ.get("APOGEE_BUILD_CONFIG", "Release")

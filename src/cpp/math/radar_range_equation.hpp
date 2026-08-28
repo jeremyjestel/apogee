@@ -11,7 +11,7 @@ struct RadarEquationResult
 };
 
 // Evaluate the monostatic radar equation for one range.
-RadarEquationResult radar_snr_db(
+RadarEquationResult radar_range_equation(
     const RadarParams& radar,
     double target_rcs_dbsm,
     double range_m

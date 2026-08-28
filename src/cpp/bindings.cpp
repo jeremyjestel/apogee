@@ -340,7 +340,7 @@ PYBIND11_MODULE(apogee, m)
         "Set one editable parameter by path."
     );
 
-    // Bind the result DTOs so Python can pass simulation output to Rerun.
+    // Bind visualization-neutral result DTOs for the Python viewer adapters.
     py::class_<EntityDescriptor>(m, "EntityDescriptor")
         .def(py::init<>())
         .def_readwrite("id", &EntityDescriptor::id)
@@ -384,21 +384,22 @@ PYBIND11_MODULE(apogee, m)
         .def_readwrite("values", &Curve1D::values)
         .def_readwrite("presentation", &Curve1D::presentation);
 
-    py::class_<Metric>(m, "Metric")
+    py::class_<MetricSeries>(m, "MetricSeries")
         .def(py::init<>())
-        .def_readwrite("key", &Metric::key)
-        .def_readwrite("name", &Metric::name)
-        .def_readwrite("unit", &Metric::unit)
-        .def_readwrite("value", &Metric::value);
+        .def_readwrite("key", &MetricSeries::key)
+        .def_readwrite("name", &MetricSeries::name)
+        .def_readwrite("unit", &MetricSeries::unit)
+        .def_readwrite("values", &MetricSeries::values);
 
-    py::class_<Snapshot>(m, "Snapshot")
+    py::class_<MetricTable>(m, "MetricTable")
         .def(py::init<>())
-        .def_readwrite("entity_id", &Snapshot::entity_id)
-        .def_readwrite("system", &Snapshot::system)
-        .def_readwrite("key", &Snapshot::key)
-        .def_readwrite("name", &Snapshot::name)
-        .def_readwrite("metrics", &Snapshot::metrics)
-        .def_readwrite("presentation", &Snapshot::presentation);
+        .def_readwrite("entity_id", &MetricTable::entity_id)
+        .def_readwrite("system", &MetricTable::system)
+        .def_readwrite("key", &MetricTable::key)
+        .def_readwrite("name", &MetricTable::name)
+        .def_readwrite("time_axis", &MetricTable::time_axis)
+        .def_readwrite("metrics", &MetricTable::metrics)
+        .def_readwrite("presentation", &MetricTable::presentation);
 
     py::class_<VectorSeries3>(m, "VectorSeries3")
         .def(py::init<>())
@@ -412,22 +413,23 @@ PYBIND11_MODULE(apogee, m)
         .def_readwrite("values", &VectorSeries3::values)
         .def_readwrite("presentation", &VectorSeries3::presentation);
 
-    py::class_<Grid2D>(m, "Grid2D")
+    py::class_<GridSeries2D>(m, "GridSeries2D")
         .def(py::init<>())
-        .def_readwrite("entity_id", &Grid2D::entity_id)
-        .def_readwrite("system", &Grid2D::system)
-        .def_readwrite("key", &Grid2D::key)
-        .def_readwrite("name", &Grid2D::name)
-        .def_readwrite("x_axis", &Grid2D::x_axis)
-        .def_readwrite("y_axis", &Grid2D::y_axis)
-        .def_readwrite("value_unit", &Grid2D::value_unit)
-        .def_readwrite("rows", &Grid2D::rows)
-        .def_readwrite("columns", &Grid2D::columns)
-        .def_readwrite("values", &Grid2D::values)
-        .def_readwrite("has_display_range", &Grid2D::has_display_range)
-        .def_readwrite("display_min", &Grid2D::display_min)
-        .def_readwrite("display_max", &Grid2D::display_max)
-        .def_readwrite("presentation", &Grid2D::presentation);
+        .def_readwrite("entity_id", &GridSeries2D::entity_id)
+        .def_readwrite("system", &GridSeries2D::system)
+        .def_readwrite("key", &GridSeries2D::key)
+        .def_readwrite("name", &GridSeries2D::name)
+        .def_readwrite("time_axis", &GridSeries2D::time_axis)
+        .def_readwrite("x_axis", &GridSeries2D::x_axis)
+        .def_readwrite("y_axis", &GridSeries2D::y_axis)
+        .def_readwrite("value_unit", &GridSeries2D::value_unit)
+        .def_readwrite("rows", &GridSeries2D::rows)
+        .def_readwrite("columns", &GridSeries2D::columns)
+        .def_readwrite("values", &GridSeries2D::values)
+        .def_readwrite("has_display_range", &GridSeries2D::has_display_range)
+        .def_readwrite("display_min", &GridSeries2D::display_min)
+        .def_readwrite("display_max", &GridSeries2D::display_max)
+        .def_readwrite("presentation", &GridSeries2D::presentation);
 
     py::class_<Result>(m, "Result")
         .def(py::init<>())
@@ -435,9 +437,9 @@ PYBIND11_MODULE(apogee, m)
         .def_readwrite("axes", &Result::axes)
         .def_readwrite("scalars", &Result::scalars)
         .def_readwrite("curves", &Result::curves)
-        .def_readwrite("snapshots", &Result::snapshots)
+        .def_readwrite("metric_tables", &Result::metric_tables)
         .def_readwrite("vectors", &Result::vectors)
-        .def_readwrite("grids", &Result::grids);
+        .def_readwrite("grid_series", &Result::grid_series);
 
     // Expose the simulation as the single C++ execution entry point.
     m.def(

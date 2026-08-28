@@ -2,7 +2,7 @@
 
 #include <cmath>
 
-double get_3d_difference(const Vec3& a, const Vec3& b)
+double difference_magnitude(const Vec3& a, const Vec3& b)
 {
     // Apply the Euclidean norm to the coordinate difference between both points.
     const double dx = a.x - b.x;

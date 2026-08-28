@@ -22,10 +22,10 @@ std::optional<RangePulseProduct> range_doppler_map(
     // This does assume motion has occurred already
     // Returns the range doppler map the radar sees when tracking the missile, assumes max gain
     // Range is changing state, so recompute it from the current positions.
-    radar.state.target_range_m = get_3d_difference(
+    radar.state.target_range_m = difference_magnitude(
         radar_kinematics.pos_m,
         target_kinematics.pos_m);
-    radar.state.target_vel_mps = get_3d_difference(
+    radar.state.target_vel_mps = difference_magnitude(
         radar_kinematics.vel_mps,
         target_kinematics.vel_mps);
     double target_range = radar.state.target_range_m;
@@ -34,7 +34,7 @@ std::optional<RangePulseProduct> range_doppler_map(
     const RadarParams &p = radar.p;
 
     // Reuse the same range equation as the static SNR analysis.
-    const auto radar_equation_result = radar_snr_db(
+    const auto radar_equation_result = radar_range_equation(
         p,
         target_rcs_dbsm,
         radar.state.target_range_m);
@@ -115,10 +115,11 @@ std::optional<RangePulseProduct> range_doppler_map(
     return std::nullopt;
 }
 
-Grid2D make_noisy_range_doppler_grid(
+GridSeries2D make_noisy_range_doppler_series(
     const RangePulseProduct& product,
     const RadarParams& radar,
-    int radar_entity_id
+    int radar_entity_id,
+    double time_s
 )
 {
     const Eigen::MatrixXcd& range_pulse_noisy = product.samples;
@@ -126,11 +127,18 @@ Grid2D make_noisy_range_doppler_grid(
     const auto num_samples = range_pulse_noisy.cols();
 
     // Transpose the display grid so pulses run horizontally and range vertically.
-    Grid2D range_doppler_noisy_grid{
+    GridSeries2D range_doppler_noisy_grid{
         .entity_id = radar_entity_id,
         .system = "radar",
         .key = "range_doppler_noisy",
         .name = "Noisy Range-Doppler Map",
+        .time_axis = Axis{
+            .key = "simulation_time",
+            .name = "Time",
+            .unit = "s",
+            .kind = "time",
+            .values = {time_s}
+        },
         .x_axis = Axis{
             .key = "pulse_index",
             .name = "Pulse",
