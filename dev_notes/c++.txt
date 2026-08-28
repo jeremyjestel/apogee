@@ -11,7 +11,9 @@ Anything housing data should be a struct, anything housing behavior or system sh
 
 build step
 cmake -S . -B build
-cmake --build build
+cmake --build build --config Release
+python src/python/main.py
+
 
 creates apogee.pyd and must be copied next to main.py
 
