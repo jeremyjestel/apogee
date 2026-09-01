@@ -14,7 +14,7 @@ EntityDefinition make_blue_radar()
         .type = "radar",
         .team = "blue",
         .initial_kinematics = KinematicState{
-            Vec3{constants::earth_mean_radius_m, 0.0, 0.0},
+            Vec3{-constants::earth_mean_radius_m, 0.0, 0.0},
             Vec3{0.0, 464.6, 0.0},
             Vec3{-0.0339, 0.0, 0.0}
         },
@@ -59,7 +59,7 @@ EntityDefinition make_red_missile()
         .type = "missile",
         .team = "red",
         .initial_kinematics = KinematicState{
-            Vec3{constants::earth_mean_radius_m + 100'000.0, 50'000.0, 0.0},
+            Vec3{0.0, 50'000.0, constants::earth_mean_radius_m + 100'000.0},
             Vec3{0.0, 1'500.0, 250.0},
             Vec3{-9.52, -0.074, 0.0}
         },
@@ -76,7 +76,7 @@ EntityDefinition make_blue_interceptor()
         .type = "interceptor",
         .team = "blue",
         .initial_kinematics = KinematicState{
-            Vec3{constants::earth_mean_radius_m + 20'000.0, -30'000.0, 0.0},
+            Vec3{constants::earth_mean_radius_m + 20'000.0, -30'000.0, 50000},
             Vec3{100.0, 1'200.0, 600.0},
             Vec3{-9.76, 0.046, 0.0}
         },

@@ -1,4 +1,5 @@
 from pathlib import Path
+import socket
 
 import apogee
 import numpy as np
@@ -255,10 +256,15 @@ def _log_result(result, recording, blueprint=None):
 def view_rerun(result):
     """Open a detached viewer and send one completed scene and telemetry result."""
 
+    with socket.socket() as port_socket:
+        port_socket.bind(("127.0.0.1", 0))
+        port = port_socket.getsockname()[1]
+
     recording = rr.RecordingStream(APPLICATION_ID)
     try:
         viewer_path = Path(rr.__file__).resolve().parent.parent / "rerun_cli" / "rerun.exe"
         rr.spawn(
+            port=port,
             hide_welcome_screen=True,
             executable_path=str(viewer_path) if viewer_path.is_file() else None,
             recording=recording,

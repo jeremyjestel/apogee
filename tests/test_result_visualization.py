@@ -1,9 +1,12 @@
+from unittest.mock import Mock
+
 import numpy as np
 import pytest
 import rerun as rr
 
 import apogee
 from parameter_window import create_params_from_text, default_parameter_values
+from visualization import rerun_adapter
 from visualization.rerun_adapter import _log_result
 from visualization.telemetry_catalog import build_telemetry_catalog
 
@@ -317,3 +320,34 @@ def test_real_result_logs_scene_and_telemetry_to_memory():
         assert len(memory.drain_as_bytes()) > 0
     finally:
         recording.disconnect()
+
+
+def test_view_rerun_uses_an_available_port_and_no_recording_file(monkeypatch):
+    port_socket = Mock()
+    port_socket.__enter__ = Mock(return_value=port_socket)
+    port_socket.__exit__ = Mock(return_value=None)
+    port_socket.getsockname.return_value = ("127.0.0.1", 43210)
+    recording = Mock()
+    spawn = Mock()
+    log_result = Mock()
+    monkeypatch.setattr(
+        rerun_adapter.socket,
+        "socket",
+        Mock(return_value=port_socket),
+    )
+    monkeypatch.setattr(
+        rerun_adapter.rr,
+        "RecordingStream",
+        Mock(return_value=recording),
+    )
+    monkeypatch.setattr(rerun_adapter.rr, "spawn", spawn)
+    monkeypatch.setattr(rerun_adapter, "_log_result", log_result)
+
+    result = object()
+    rerun_adapter.view_rerun(result)
+
+    port_socket.bind.assert_called_once_with(("127.0.0.1", 0))
+    assert spawn.call_args.kwargs["port"] == 43210
+    log_result.assert_called_once_with(result, recording)
+    recording.save.assert_not_called()
+    recording.disconnect.assert_called_once()
