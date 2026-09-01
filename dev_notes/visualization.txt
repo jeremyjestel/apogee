@@ -1,3 +1,0 @@
-Matplotlib type plots for data anlysis on teh statistical side
-
-Rerun.io as teh viewer for watching trajectories and how the scenario evolves over time this will be simplistic for ease of development and viewing

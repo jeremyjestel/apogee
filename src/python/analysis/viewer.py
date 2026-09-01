@@ -56,6 +56,7 @@ class AnalysisWorkspace(QSplitter):
         welcome = QLabel("Select an analysis product")
         welcome.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.workspace.addWidget(welcome)
+        self._current_widget = welcome
         self.addWidget(self.workspace)
         self.setStretchFactor(1, 1)
         self.setSizes([280, 1000])
