@@ -47,9 +47,12 @@ new calculation using an existing shape needs no viewer-specific wiring. See
 ```powershell
 conda env create -f environment.yml
 conda activate apogee
-cmake -S . -B build -DCMAKE_PREFIX_PATH="$env:CONDA_PREFIX"
+./scripts/configure.ps1
 cmake --build build --config Release
 ```
+
+The configure script expects the vcpkg installation at `C:\vcpkg` and passes
+`C:\vcpkg\scripts\buildsystems\vcpkg.cmake` to CMake as its toolchain file.
 
 To update an existing environment:
 
