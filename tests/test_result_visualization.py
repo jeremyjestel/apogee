@@ -54,19 +54,48 @@ def test_parameter_schema_defaults_and_text_round_trip():
     required_paths = {
         "radar_analysis.max_range_m",
         "radar_analysis.range_samples",
+        "blue_radar.ground.latitude_deg",
+        "blue_radar.ground.longitude_deg",
+        "blue_radar.ground.altitude_m",
         "blue_radar.radar.frequency_hz",
         "blue_radar.radar.pulse_width_us",
         "blue_radar.radar.pri_us",
         "blue_radar.radar_signature_dbsm",
+        "blue_satellite.satellite.orbital_altitude_m",
+        "blue_satellite.satellite.orbit_direction",
+        "blue_satellite.satellite.inclination_deg",
+        "blue_satellite.satellite.ascending_node_deg",
+        "blue_satellite.satellite.orbital_phase_deg",
         "blue_satellite.radar_signature_dbsm",
+        "red_missile.initial_pursuit.latitude_deg",
+        "red_missile.initial_pursuit.longitude_deg",
+        "red_missile.initial_pursuit.altitude_m",
+        "red_missile.initial_pursuit.speed_mps",
         "red_missile.radar_signature_dbsm",
+        "blue_interceptor.initial_pursuit.latitude_deg",
+        "blue_interceptor.initial_pursuit.longitude_deg",
+        "blue_interceptor.initial_pursuit.altitude_m",
+        "blue_interceptor.initial_pursuit.speed_mps",
         "blue_interceptor.radar_signature_dbsm",
     }
     assert required_paths <= set(paths)
     assert specs_by_path["simulation.dt_s"].unit == "s"
     assert specs_by_path["blue_radar.radar.frequency_hz"].name == "Frequency"
     assert defaults["blue_radar.radar.frequency_hz"] == pytest.approx(5e9)
+    assert defaults["blue_satellite.satellite.orbital_altitude_m"] == pytest.approx(
+        500_000.0
+    )
     assert defaults["red_missile.radar_signature_dbsm"] == pytest.approx(-10.0)
+
+    assert not any(
+        path.startswith("blue_satellite.initial_kinematics") for path in paths
+    )
+    assert not any(
+        path.startswith("red_missile.initial_kinematics") for path in paths
+    )
+    assert not any(
+        path.startswith("blue_interceptor.initial_kinematics") for path in paths
+    )
 
     edited_text = {path: str(value + 0.125) for path, value in defaults.items()}
     edited = _parameter_values(create_params_from_text(edited_text))
@@ -79,7 +108,9 @@ def test_edited_run_contains_complete_kinematic_histories():
     values = default_parameter_values()
     values["simulation.dt_s"] = "0.25"
     values["simulation.duration_s"] = "0.5"
-    values["blue_radar.initial_kinematics.pos_m.x"] = "7000000"
+    values["blue_radar.ground.latitude_deg"] = "0"
+    values["blue_radar.ground.longitude_deg"] = "0"
+    values["blue_radar.ground.altitude_m"] = "629000"
 
     result = apogee.run_sim(create_params_from_text(values))
     expected_keys = {
@@ -121,6 +152,134 @@ def test_edited_run_contains_complete_kinematic_histories():
         assert all(series.frame == "eci" for series in vectors)
         assert all(len(series.values) == len(simulation_time) for series in vectors)
         assert len(speed.values) == len(simulation_time)
+
+
+def test_ground_lla_and_earth_rotation_define_radar_kinematics():
+    params = apogee.Params()
+    apogee.set_parameter(params, "simulation.dt_s", 1.0)
+    apogee.set_parameter(params, "simulation.duration_s", 2.0)
+    apogee.set_parameter(params, "blue_radar.ground.latitude_deg", 0.0)
+    apogee.set_parameter(params, "blue_radar.ground.longitude_deg", 0.0)
+    apogee.set_parameter(params, "blue_radar.ground.altitude_m", 0.0)
+
+    result = apogee.run_sim(params)
+    radar = next(entity for entity in result.entities if entity.key == "blue_radar")
+    position = next(
+        item for item in result.vectors
+        if item.entity_id == radar.id and item.key == "position"
+    )
+    velocity = next(
+        item for item in result.vectors
+        if item.entity_id == radar.id and item.key == "velocity"
+    )
+
+    assert position.values[0].x == pytest.approx(apogee.constants.earth_mean_radius_m)
+    assert position.values[0].y == pytest.approx(0.0, abs=1e-9)
+    assert position.values[1].y > 0.0
+    assert velocity.values[0].y == pytest.approx(
+        apogee.constants.earth_rotation_rate_rad_s
+        * apogee.constants.earth_mean_radius_m
+    )
+
+
+def test_initial_pursuit_velocities_point_at_initial_targets():
+    params = apogee.Params()
+    apogee.set_parameter(params, "simulation.duration_s", 0.1)
+    result = apogee.run_sim(params)
+    entities = {entity.key: entity for entity in result.entities}
+
+    def initial_vector(entity_key, vector_key):
+        entity = entities[entity_key]
+        value = next(
+            item for item in result.vectors
+            if item.entity_id == entity.id and item.key == vector_key
+        ).values[0]
+        return np.array([value.x, value.y, value.z])
+
+    for entity_key, target_key in (
+        ("red_missile", "blue_satellite"),
+        ("blue_interceptor", "red_missile"),
+    ):
+        position = initial_vector(entity_key, "position")
+        target_position = initial_vector(target_key, "position")
+        velocity = initial_vector(entity_key, "velocity")
+        acceleration = initial_vector(entity_key, "acceleration")
+        target_direction = target_position - position
+
+        assert np.linalg.norm(np.cross(velocity, target_direction)) == pytest.approx(
+            0.0, abs=1e-3
+        )
+        assert np.dot(velocity, target_direction) > 0.0
+        assert acceleration == pytest.approx(np.zeros(3))
+
+
+def test_satellite_altitude_and_direction_define_circular_state():
+    params = apogee.Params()
+    altitude_m = 1_000_000.0
+    apogee.set_parameter(params, "simulation.duration_s", 0.1)
+    apogee.set_parameter(
+        params, "blue_satellite.satellite.orbital_altitude_m", altitude_m
+    )
+    apogee.set_parameter(
+        params, "blue_satellite.satellite.orbit_direction", -1.0
+    )
+
+    result = apogee.run_sim(params)
+    satellite = next(
+        entity for entity in result.entities if entity.key == "blue_satellite"
+    )
+    position = next(
+        item for item in result.vectors
+        if item.entity_id == satellite.id and item.key == "position"
+    ).values[0]
+    velocity = next(
+        item for item in result.vectors
+        if item.entity_id == satellite.id and item.key == "velocity"
+    ).values[0]
+    radius_m = apogee.constants.earth_mean_radius_m + altitude_m
+
+    assert position.y == pytest.approx(radius_m)
+    assert velocity.x == pytest.approx(
+        (apogee.constants.earth_mu_m3_s2 / radius_m) ** 0.5
+    )
+
+
+def test_satellite_angles_orient_the_circular_orbit():
+    params = apogee.Params()
+    altitude_m = 500_000.0
+    apogee.set_parameter(params, "simulation.duration_s", 0.1)
+    apogee.set_parameter(
+        params, "blue_satellite.satellite.inclination_deg", 63.0
+    )
+    apogee.set_parameter(
+        params, "blue_satellite.satellite.ascending_node_deg", 25.0
+    )
+    apogee.set_parameter(
+        params, "blue_satellite.satellite.orbital_phase_deg", 40.0
+    )
+
+    result = apogee.run_sim(params)
+    satellite = next(
+        entity for entity in result.entities if entity.key == "blue_satellite"
+    )
+    position_value = next(
+        item for item in result.vectors
+        if item.entity_id == satellite.id and item.key == "position"
+    ).values[0]
+    velocity_value = next(
+        item for item in result.vectors
+        if item.entity_id == satellite.id and item.key == "velocity"
+    ).values[0]
+    position = np.array([position_value.x, position_value.y, position_value.z])
+    velocity = np.array([velocity_value.x, velocity_value.y, velocity_value.z])
+    radius_m = apogee.constants.earth_mean_radius_m + altitude_m
+
+    assert np.linalg.norm(position) == pytest.approx(radius_m)
+    assert np.linalg.norm(velocity) == pytest.approx(
+        (apogee.constants.earth_mu_m3_s2 / radius_m) ** 0.5
+    )
+    assert np.dot(position, velocity) == pytest.approx(0.0, abs=1e-5)
+    assert position[2] != pytest.approx(0.0)
 
 
 def test_radar_analysis_uses_radar_and_missile_parameters():

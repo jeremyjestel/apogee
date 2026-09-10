@@ -16,6 +16,11 @@ struct EntityDefinition
     std::string type;
     std::string team;
     KinematicState initial_kinematics;
+    std::optional<GroundParams> ground;
+    // An engaged optional derives circular-orbit kinematics from altitude.
+    std::optional<SatelliteParams> satellite;
+    // An engaged optional derives one initial velocity toward another entity.
+    std::optional<InitialPursuitParams> initial_pursuit;
     // An engaged optional attaches radar behavior when this definition is instantiated.
     std::optional<RadarParams> radar;
     double radar_signature_dbsm = 0.0;

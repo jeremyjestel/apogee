@@ -15,6 +15,7 @@ inline constexpr double meters_per_kilometer = 1'000.0;
 inline constexpr double hertz_per_gigahertz = 1'000'000'000.0;
 inline constexpr double microseconds_per_second = 1'000'000.0;
 inline constexpr double radar_sampling_rate_multiplier = 3.0;
-
+inline constexpr double earth_mu_m3_s2 = 3.986004418e14;
+inline constexpr double earth_rotation_rate_rad_s = 7.2921150e-5;
 inline constexpr char eci_frame[] = "eci";
 }

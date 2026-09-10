@@ -16,7 +16,9 @@ pybind11_add_module(apogee
     src/cpp/math/radar_range_equation.cpp
     src/cpp/run_sim.cpp
     src/cpp/scenarios/default/default_scenario.cpp
+    src/cpp/systems/ground_motion.cpp
     src/cpp/systems/motion_system.cpp
+    src/cpp/systems/orbital_motion.cpp
     src/cpp/systems/radar_system.cpp
     src/cpp/systems/range_doppler_map.cpp
 )

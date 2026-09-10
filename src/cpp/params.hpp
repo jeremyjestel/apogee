@@ -1,9 +1,12 @@
 #pragma once
 
 #include <array>
+#include <cmath>
+#include <stdexcept>
 #include <string>
 #include <tuple>
 
+#include "core/constants.hpp"
 #include "core/kinematic_state.hpp"
 
 // A field descriptor connects one editable C++ member to its UI name and unit.
@@ -135,6 +138,205 @@ struct RadarParams
                 "Pulse repetition interval",
                 "us"
             )
+        };
+    }
+};
+
+struct SatelliteParams
+{
+    double orbital_altitude_m = 0.0;
+    double orbit_direction = 1.0;
+    double inclination_deg = 0.0;
+    double ascending_node_deg = 0.0;
+    double orbital_phase_deg = 90.0;
+
+    KinematicState initial_kinematics() const
+    {
+        if (orbital_altitude_m < 0.0)
+        {
+            throw std::invalid_argument(
+                "Satellite orbital altitude must be non-negative."
+            );
+        }
+        if (orbit_direction != 1.0 && orbit_direction != -1.0)
+        {
+            throw std::invalid_argument(
+                "Satellite orbit direction must be +1 or -1."
+            );
+        }
+
+        const double radius_m =
+            constants::earth_mean_radius_m + orbital_altitude_m;
+        const double speed_mps = std::sqrt(
+            constants::earth_mu_m3_s2 / radius_m
+        );
+        const double acceleration_mps2 =
+            constants::earth_mu_m3_s2 / (radius_m * radius_m);
+        const double inclination_rad = inclination_deg * constants::pi / 180.0;
+        const double ascending_node_rad =
+            ascending_node_deg * constants::pi / 180.0;
+        const double orbital_phase_rad =
+            orbital_phase_deg * constants::pi / 180.0;
+        const double cos_i = std::cos(inclination_rad);
+        const double sin_i = std::sin(inclination_rad);
+        const double cos_node = std::cos(ascending_node_rad);
+        const double sin_node = std::sin(ascending_node_rad);
+        const double cos_phase = std::cos(orbital_phase_rad);
+        const double sin_phase = std::sin(orbital_phase_rad);
+
+        const Vec3 position{
+            radius_m * (cos_node * cos_phase - sin_node * sin_phase * cos_i),
+            radius_m * (sin_node * cos_phase + cos_node * sin_phase * cos_i),
+            radius_m * sin_phase * sin_i
+        };
+        const Vec3 velocity{
+            orbit_direction * speed_mps
+                * (-cos_node * sin_phase - sin_node * cos_phase * cos_i),
+            orbit_direction * speed_mps
+                * (-sin_node * sin_phase + cos_node * cos_phase * cos_i),
+            orbit_direction * speed_mps * cos_phase * sin_i
+        };
+
+        return KinematicState{
+            position,
+            velocity,
+            position * (-acceleration_mps2 / radius_m)
+        };
+    }
+
+    static constexpr auto fields()
+    {
+        return std::tuple{
+            parameter(
+                "orbital_altitude_m",
+                &SatelliteParams::orbital_altitude_m,
+                "Orbital altitude",
+                "m"
+            ),
+            parameter(
+                "orbit_direction",
+                &SatelliteParams::orbit_direction,
+                "Orbit direction (+1 with Earth, -1 against)",
+                ""
+            ),
+            parameter(
+                "inclination_deg",
+                &SatelliteParams::inclination_deg,
+                "Inclination",
+                "deg"
+            ),
+            parameter(
+                "ascending_node_deg",
+                &SatelliteParams::ascending_node_deg,
+                "Ascending-node longitude",
+                "deg"
+            ),
+            parameter(
+                "orbital_phase_deg",
+                &SatelliteParams::orbital_phase_deg,
+                "Orbital phase",
+                "deg"
+            )
+        };
+    }
+};
+
+struct GroundParams
+{
+    double latitude_deg = 0.0;
+    double longitude_deg = 0.0;
+    double altitude_m = 0.0;
+
+    KinematicState initial_kinematics() const
+    {
+        if (latitude_deg < -90.0 || latitude_deg > 90.0)
+        {
+            throw std::invalid_argument(
+                "Ground latitude must be between -90 and 90 degrees."
+            );
+        }
+
+        const double latitude_rad = latitude_deg * constants::pi / 180.0;
+        const double longitude_rad = longitude_deg * constants::pi / 180.0;
+        const double radius_m = constants::earth_mean_radius_m + altitude_m;
+        if (radius_m <= 0.0)
+        {
+            throw std::invalid_argument("Ground radius must be positive.");
+        }
+
+        const double x = radius_m * std::cos(latitude_rad) * std::cos(longitude_rad);
+        const double y = radius_m * std::cos(latitude_rad) * std::sin(longitude_rad);
+        const double z = radius_m * std::sin(latitude_rad);
+        const double omega = constants::earth_rotation_rate_rad_s;
+
+        return KinematicState{
+            Vec3{x, y, z},
+            Vec3{-omega * y, omega * x, 0.0},
+            Vec3{-omega * omega * x, -omega * omega * y, 0.0}
+        };
+    }
+
+    static constexpr auto fields()
+    {
+        return std::tuple{
+            parameter("latitude_deg", &GroundParams::latitude_deg, "Latitude", "deg"),
+            parameter("longitude_deg", &GroundParams::longitude_deg, "Longitude", "deg"),
+            parameter("altitude_m", &GroundParams::altitude_m, "Altitude", "m")
+        };
+    }
+};
+
+struct InitialPursuitParams
+{
+    double latitude_deg = 0.0;
+    double longitude_deg = 0.0;
+    double altitude_m = 0.0;
+    double speed_mps = 0.0;
+    std::string target_key;
+
+    KinematicState initial_kinematics() const
+    {
+        if (latitude_deg < -90.0 || latitude_deg > 90.0)
+        {
+            throw std::invalid_argument(
+                "Initial pursuit latitude must be between -90 and 90 degrees."
+            );
+        }
+        if (speed_mps < 0.0)
+        {
+            throw std::invalid_argument(
+                "Initial pursuit speed must be non-negative."
+            );
+        }
+
+        const double latitude_rad = latitude_deg * constants::pi / 180.0;
+        const double longitude_rad = longitude_deg * constants::pi / 180.0;
+        const double radius_m = constants::earth_mean_radius_m + altitude_m;
+        if (radius_m <= 0.0)
+        {
+            throw std::invalid_argument(
+                "Initial pursuit radius must be positive."
+            );
+        }
+
+        return KinematicState{
+            Vec3{
+                radius_m * std::cos(latitude_rad) * std::cos(longitude_rad),
+                radius_m * std::cos(latitude_rad) * std::sin(longitude_rad),
+                radius_m * std::sin(latitude_rad)
+            },
+            Vec3{},
+            Vec3{}
+        };
+    }
+
+    static constexpr auto fields()
+    {
+        return std::tuple{
+            parameter("latitude_deg", &InitialPursuitParams::latitude_deg, "Latitude", "deg"),
+            parameter("longitude_deg", &InitialPursuitParams::longitude_deg, "Longitude", "deg"),
+            parameter("altitude_m", &InitialPursuitParams::altitude_m, "Altitude", "m"),
+            parameter("speed_mps", &InitialPursuitParams::speed_mps, "Speed", "m/s")
         };
     }
 };

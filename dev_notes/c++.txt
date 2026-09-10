@@ -9,8 +9,11 @@ Performance of calculations will be done by C++ entirely, python will provide th
 
 Anything housing data should be a struct, anything housing behavior or system should be a class
 
-build step
+one time
+./scripts/configure.ps1
+maybe
 cmake -S . -B build
+Everytime
 cmake --build build --config Release
 python src/python/main.py
 

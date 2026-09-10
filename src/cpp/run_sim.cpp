@@ -1,6 +1,7 @@
 #include "run_sim.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <optional>
 #include <stdexcept>
@@ -11,7 +12,9 @@
 #include "analysis/radar_range.hpp"
 #include "core/entity.hpp"
 #include "logging.hpp"
+#include "systems/ground_motion.hpp"
 #include "systems/motion_system.hpp"
+#include "systems/orbital_motion.hpp"
 #include "systems/radar_system.hpp"
 
 namespace
@@ -24,7 +27,13 @@ Entity instantiate(const EntityDefinition& definition)
         .display_name = definition.display_name,
         .type = definition.type,
         .team = definition.team,
-        .kinematics = definition.initial_kinematics,
+        .kinematics = definition.ground
+            ? definition.ground->initial_kinematics()
+            : definition.satellite
+                ? definition.satellite->initial_kinematics()
+                : definition.initial_pursuit
+                    ? definition.initial_pursuit->initial_kinematics()
+                    : definition.initial_kinematics,
         .radar_signature_dbsm = definition.radar_signature_dbsm
     };
     if (definition.radar)
@@ -60,6 +69,36 @@ Result run_sim(const ScenarioParams& params)
     for (const EntityDefinition& definition : params.entities)
     {
         entities.push_back(instantiate(definition));
+    }
+
+    // Aim pursuit entities once at their targets' initial positions.
+    for (std::size_t index = 0; index < params.entities.size(); ++index)
+    {
+        const EntityDefinition& definition = params.entities[index];
+        if (!definition.initial_pursuit)
+        {
+            continue;
+        }
+
+        Entity& entity = entities[index];
+        const Entity& target = require_entity(
+            entities,
+            definition.initial_pursuit->target_key
+        );
+        const double dx = target.kinematics.pos_m.x - entity.kinematics.pos_m.x;
+        const double dy = target.kinematics.pos_m.y - entity.kinematics.pos_m.y;
+        const double dz = target.kinematics.pos_m.z - entity.kinematics.pos_m.z;
+        const double distance_m = std::hypot(dx, dy, dz);
+        if (distance_m == 0.0)
+        {
+            throw std::invalid_argument(
+                "Initial pursuit entity and target cannot share a position."
+            );
+        }
+
+        const double scale = definition.initial_pursuit->speed_mps / distance_m;
+        entity.kinematics.vel_mps = Vec3{dx * scale, dy * scale, dz * scale};
+        entity.kinematics.accel_mps2 = Vec3{};
     }
 
     // Select the fixed radar engagement by the entities' stable identities.
@@ -128,7 +167,13 @@ Result run_sim(const ScenarioParams& params)
 
         for (Entity& entity : entities)
         {
-            advance_kinematics(entity.kinematics, dt_s);
+            if (entity.type == "radar")
+                {advance_ground(entity.kinematics, dt_s);}
+            else if (entity.type == "satellite")
+                {advance_orbit(entity.kinematics, dt_s);}
+            else
+                {advance_kinematics(entity.kinematics, dt_s);}
+            
         }
 
         auto range_pulse = update_radar(radar_entity, radar_target);

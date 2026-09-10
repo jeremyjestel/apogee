@@ -115,12 +115,42 @@ void visit_parameters(ScenarioParams& params, Visitor&& visitor)
 
     for (EntityDefinition& entity : params.entities)
     {
-        visit_kinematics(
-            entity.initial_kinematics,
-            entity.display_name,
-            entity.key + ".initial_kinematics",
-            callback
-        );
+        if (entity.ground)
+        {
+            visit_parameter_fields(
+                *entity.ground,
+                entity.display_name,
+                entity.key + ".ground",
+                callback
+            );
+        }
+        else if (entity.satellite)
+        {
+            visit_parameter_fields(
+                *entity.satellite,
+                entity.display_name,
+                entity.key + ".satellite",
+                callback
+            );
+        }
+        else if (entity.initial_pursuit)
+        {
+            visit_parameter_fields(
+                *entity.initial_pursuit,
+                entity.display_name,
+                entity.key + ".initial_pursuit",
+                callback
+            );
+        }
+        else
+        {
+            visit_kinematics(
+                entity.initial_kinematics,
+                entity.display_name,
+                entity.key + ".initial_kinematics",
+                callback
+            );
+        }
 
         // Only expose radar fields for definitions that actually own a radar.
         if (entity.radar)
@@ -250,6 +280,9 @@ PYBIND11_MODULE(apogee, m)
         constants::reference_noise_temperature_k;
     constants_module.attr("earth_mean_radius_m") =
         constants::earth_mean_radius_m;
+    constants_module.attr("earth_mu_m3_s2") = constants::earth_mu_m3_s2;
+    constants_module.attr("earth_rotation_rate_rad_s") =
+        constants::earth_rotation_rate_rad_s;
     constants_module.attr("meters_per_kilometer") =
         constants::meters_per_kilometer;
     constants_module.attr("eci_frame") = constants::eci_frame;
@@ -270,6 +303,9 @@ PYBIND11_MODULE(apogee, m)
     // Bind generic parameter types without creating entity-specific classes.
     bind_parameter_class<SimulationParams>(m, "SimulationParams");
     bind_parameter_class<RadarParams>(m, "RadarParams");
+    bind_parameter_class<GroundParams>(m, "GroundParams");
+    bind_parameter_class<SatelliteParams>(m, "SatelliteParams");
+    bind_parameter_class<InitialPursuitParams>(m, "InitialPursuitParams");
     bind_parameter_class<RadarAnalysisParams>(m, "RadarAnalysisParams");
 
     // Keep entity identity read-only while allowing its configurable data to change.
@@ -282,6 +318,32 @@ PYBIND11_MODULE(apogee, m)
         .def_readwrite(
             "initial_kinematics",
             &EntityDefinition::initial_kinematics
+        )
+        .def_property_readonly(
+            "ground",
+            [](EntityDefinition& entity) -> GroundParams*
+            {
+                return entity.ground ? &*entity.ground : nullptr;
+            },
+            py::return_value_policy::reference_internal
+        )
+        .def_property_readonly(
+            "satellite",
+            [](EntityDefinition& entity) -> SatelliteParams*
+            {
+                return entity.satellite ? &*entity.satellite : nullptr;
+            },
+            py::return_value_policy::reference_internal
+        )
+        .def_property_readonly(
+            "initial_pursuit",
+            [](EntityDefinition& entity) -> InitialPursuitParams*
+            {
+                return entity.initial_pursuit
+                    ? &*entity.initial_pursuit
+                    : nullptr;
+            },
+            py::return_value_policy::reference_internal
         )
         // Return the contained optional by reference instead of a Python copy.
         .def_property_readonly(

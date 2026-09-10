@@ -13,10 +13,10 @@ EntityDefinition make_blue_radar()
         .display_name = "Blue Radar",
         .type = "radar",
         .team = "blue",
-        .initial_kinematics = KinematicState{
-            Vec3{-constants::earth_mean_radius_m, 0.0, 0.0},
-            Vec3{0.0, 464.6, 0.0},
-            Vec3{-0.0339, 0.0, 0.0}
+        .ground = GroundParams{
+            .latitude_deg = 0.0,
+            .longitude_deg = 180.0,
+            .altitude_m = 0.0
         },
         .radar = RadarParams{
             .frequency_hz = 5e9,
@@ -41,10 +41,12 @@ EntityDefinition make_blue_satellite()
         .display_name = "Blue Satellite",
         .type = "satellite",
         .team = "blue",
-        .initial_kinematics = KinematicState{
-            Vec3{0.0, constants::earth_mean_radius_m + 500'000.0, 0.0},
-            Vec3{-7'616.6, 0.0, 0.0},
-            Vec3{0.0, -8.44, 0.0}
+        .satellite = SatelliteParams{
+            .orbital_altitude_m = 500'000.0,
+            .orbit_direction = 1.0,
+            .inclination_deg = 0.0,
+            .ascending_node_deg = 0.0,
+            .orbital_phase_deg = 90.0
         },
         .radar_signature_dbsm = 0.0
     };
@@ -58,10 +60,12 @@ EntityDefinition make_red_missile()
         .display_name = "Red Missile",
         .type = "missile",
         .team = "red",
-        .initial_kinematics = KinematicState{
-            Vec3{0.0, 50'000.0, constants::earth_mean_radius_m + 100'000.0},
-            Vec3{0.0, 1'500.0, 250.0},
-            Vec3{-9.52, -0.074, 0.0}
+        .initial_pursuit = InitialPursuitParams{
+            .latitude_deg = 89.5572968683,
+            .longitude_deg = 90.0,
+            .altitude_m = 100'193.166642,
+            .speed_mps = 1'520.690633,
+            .target_key = "blue_satellite"
         },
         .radar_signature_dbsm = -10.0
     };
@@ -75,10 +79,12 @@ EntityDefinition make_blue_interceptor()
         .display_name = "Blue Interceptor",
         .type = "interceptor",
         .team = "blue",
-        .initial_kinematics = KinematicState{
-            Vec3{constants::earth_mean_radius_m + 20'000.0, -30'000.0, 50000},
-            Vec3{100.0, 1'200.0, 600.0},
-            Vec3{-9.76, 0.046, 0.0}
+        .initial_pursuit = InitialPursuitParams{
+            .latitude_deg = 0.4482395509,
+            .longitude_deg = -0.2689502051,
+            .altitude_m = 20'265.993526,
+            .speed_mps = 1'345.362405,
+            .target_key = "red_missile"
         },
         .radar_signature_dbsm = 0.0
     };
