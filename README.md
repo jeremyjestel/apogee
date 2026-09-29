@@ -1,6 +1,6 @@
 # APOGEE
 
-APOGEE is a C++ and Python missile-defense simulation for modeling interception scenarios. Rerun.io provides the main visual interface for inspecting each simulation.
+APOGEE is a C++ and Python missile-defense simulation for modeling interception scenarios. Rerun.io provides the main visual interface for inspecting each simulation. 
 
 ## Done so far
 

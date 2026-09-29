@@ -1,3 +1,11 @@
+Most important:
+Visual scenario motion
+Simple: 
+Orbit
+Point to point motion
+Prop Nav
+
+
 The purpose of APOGEE is to build a product that includes these:
 
 Extended Kalman Filtering
