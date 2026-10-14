@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+import json
+import math
+from pathlib import Path
 import sys
 import threading
 
 import apogee
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QIODevice, QSaveFile, Qt, Signal
 from PySide6.QtWidgets import (
     QApplication,
+    QFileDialog,
     QFrame,
     QGridLayout,
     QGroupBox,
@@ -43,6 +47,36 @@ def create_params_from_text(values):
     for spec in PARAMETER_SPECS:
         apogee.set_parameter(params, spec.path, float(values[spec.path]))
     return params
+
+
+def _validated_scenario_values(values):
+    if not isinstance(values, dict):
+        raise ValueError("Scenario parameters must be an object of parameter paths and values.")
+
+    expected = {spec.path for spec in PARAMETER_SPECS}
+    missing = expected - values.keys()
+    unknown = values.keys() - expected
+    if missing or unknown:
+        details = []
+        if missing:
+            details.append("Missing parameters: " + ", ".join(sorted(missing)))
+        if unknown:
+            details.append("Unknown parameters: " + ", ".join(sorted(unknown)))
+        raise ValueError("\n".join(details))
+
+    result = {}
+    for spec in PARAMETER_SPECS:
+        value = values[spec.path]
+        if isinstance(value, bool) or not isinstance(value, (str, int, float)):
+            raise ValueError(f"{spec.path} must have a numeric value.")
+        try:
+            finite = math.isfinite(float(value))
+        except (ValueError, OverflowError):
+            finite = False
+        if not finite:
+            raise ValueError(f"{spec.path} must have a finite numeric value.")
+        result[spec.path] = str(value)
+    return result
 
 
 def _parameter_groups():
@@ -108,6 +142,7 @@ class ParameterWindow(QMainWindow):
                 unit.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 grid.addWidget(unit, row, 1)
                 entry = QLineEdit(defaults[spec.path])
+                entry.textChanged.connect(self._parameters_changed)
                 grid.addWidget(entry, row, 2)
                 self.entries[spec.path] = entry
 
@@ -120,6 +155,12 @@ class ParameterWindow(QMainWindow):
         footer = QHBoxLayout()
         self.status = QLabel("Ready")
         footer.addWidget(self.status, 1)
+        self.save_button = QPushButton("Save Scenario")
+        self.save_button.clicked.connect(self.save_scenario)
+        footer.addWidget(self.save_button)
+        self.load_button = QPushButton("Load Scenario")
+        self.load_button.clicked.connect(self.load_scenario)
+        footer.addWidget(self.load_button)
         self.run_button = QPushButton("Run Simulation")
         self.run_button.clicked.connect(self.run_simulation)
         footer.addWidget(self.run_button)
@@ -159,6 +200,61 @@ class ParameterWindow(QMainWindow):
             "QScrollArea { border: 0; }"
         )
 
+    def _parameters_changed(self):
+        if self.status.text().startswith("Loaded scenario: "):
+            self.status.setText("Parameters modified")
+
+    def save_scenario(self):
+        filename, _ = QFileDialog.getSaveFileName(
+            self, "Save Scenario", "scenario.json", "Apogee scenarios (*.json)"
+        )
+        if not filename:
+            return
+
+        try:
+            values = _validated_scenario_values(
+                {path: entry.text() for path, entry in self.entries.items()}
+            )
+            scenario = (json.dumps({"version": 1, "parameters": values}, indent=2) + "\n")
+            data = scenario.encode("utf-8")
+            scenario_file = QSaveFile(filename)
+            if not scenario_file.open(QIODevice.OpenModeFlag.WriteOnly):
+                raise OSError(scenario_file.errorString())
+            if scenario_file.write(data) != len(data):
+                scenario_file.cancelWriting()
+                raise OSError(scenario_file.errorString())
+            if not scenario_file.commit():
+                raise OSError(scenario_file.errorString())
+        except (OSError, ValueError) as error:
+            QMessageBox.critical(self, "Could not save scenario", str(error))
+            return
+
+        self.status.setText(f"Saved scenario: {Path(filename).name}")
+
+    def load_scenario(self):
+        filename, _ = QFileDialog.getOpenFileName(
+            self, "Load Scenario", "", "Apogee scenarios (*.json)"
+        )
+        if not filename:
+            return
+
+        try:
+            scenario = json.loads(Path(filename).read_text(encoding="utf-8-sig"))
+            if not isinstance(scenario, dict) or type(scenario.get("version")) is not int:
+                raise ValueError("This file is not an Apogee scenario.")
+            if scenario["version"] != 1:
+                raise ValueError("This scenario file version is not supported.")
+            values = _validated_scenario_values(scenario.get("parameters"))
+        except (OSError, ValueError) as error:
+            QMessageBox.critical(self, "Could not load scenario", str(error))
+            return
+
+        # Validate the complete file before replacing any editable values.
+        for path, value in values.items():
+            self.entries[path].setText(value)
+        self.tabs.setCurrentWidget(self._parameter_tab)
+        self.status.setText(f"Loaded scenario: {Path(filename).name}")
+
     def run_simulation(self):
         if self._run_thread is not None and self._run_thread.is_alive():
             return
@@ -171,6 +267,8 @@ class ParameterWindow(QMainWindow):
             return
 
         self.run_button.setEnabled(False)
+        self.save_button.setEnabled(False)
+        self.load_button.setEnabled(False)
         self.status.setText("Running simulation…")
         self._cancel_run.clear()
         self._run_thread = threading.Thread(
@@ -204,6 +302,8 @@ class ParameterWindow(QMainWindow):
     def _simulation_finished(self, catalog, error):
         self._run_thread = None
         self.run_button.setEnabled(True)
+        self.save_button.setEnabled(True)
+        self.load_button.setEnabled(True)
 
         if catalog is None:
             self.status.setText("Simulation failed")

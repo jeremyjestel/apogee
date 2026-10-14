@@ -7,6 +7,7 @@ APOGEE is a C++ and Python missile-defense simulation for modeling interception 
 - Built a C++ simulation  with an orbiting satellite, incoming missile, a pursuing interceptor, a tracking radar.
 - Added fixed-step motion histories for position, velocity, acceleration, and speed.
 - Added a Python/PySide parameter interface generated from the C++ parameter schema.
+- Added Save Scenario and Load Scenario buttons to reuse parameter sets as JSON files.
 - Integrated Rerun.io as the simulation UI.
 - Added an interactive 3D view of the satellite, incoming missile, interceptor, and tracking radar.
 - Added timeline controls for replaying completed simulations and inspecting each timestep.
