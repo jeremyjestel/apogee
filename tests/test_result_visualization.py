@@ -347,6 +347,10 @@ def test_noisy_range_doppler_grid_and_radar_metric_table_contract():
     apogee.set_parameter(params, "blue_radar.radar.bandwidth_hz", 10_000.0)
     apogee.set_parameter(params, "blue_radar.radar.pulse_width_us", 100.0)
     apogee.set_parameter(params, "blue_radar.radar.pri_us", 1_000.0)
+    # Place the target 100 km above the radar, inside its 15–150 km detection window.
+    apogee.set_parameter(params, "red_missile.initial_pursuit.latitude_deg", 0.0)
+    apogee.set_parameter(params, "red_missile.initial_pursuit.longitude_deg", 180.0)
+    apogee.set_parameter(params, "red_missile.initial_pursuit.altitude_m", 100_000.0)
 
     result = apogee.run_sim(params)
     radar = next(entity for entity in result.entities if entity.key == "blue_radar")

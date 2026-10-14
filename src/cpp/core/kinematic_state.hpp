@@ -1,9 +1,12 @@
 #pragma once
-#include "core/vec3.hpp"
+#include "math/types.hpp"
 
-struct KinematicState
+namespace apogee
 {
-    Vec3 pos_m;
-    Vec3 vel_mps;
-    Vec3 accel_mps2;
-};
+	struct KinematicStateECI
+	{
+		Vec3 pos_m = Vec3::Zero();
+		Vec3 vel_mps = Vec3::Zero();
+		Vec3 accel_mps2 = Vec3::Zero();
+	};
+}

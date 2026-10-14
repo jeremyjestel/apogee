@@ -12,7 +12,6 @@ pybind11_add_module(apogee
     src/cpp/bindings.cpp
     src/cpp/analysis/radar_range.cpp
     src/cpp/logging.cpp
-    src/cpp/math/relative_kinematics.cpp
     src/cpp/math/radar_range_equation.cpp
     src/cpp/run_sim.cpp
     src/cpp/scenarios/default/default_scenario.cpp

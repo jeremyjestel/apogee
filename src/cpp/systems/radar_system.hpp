@@ -5,8 +5,9 @@
 #include "core/entity.hpp"
 #include "systems/range_doppler_map.hpp"
 
-// Run the radar processing chain for one radar-target pair.
-std::optional<RangePulseProduct> update_radar(
-    Entity& radar,
-    const Entity& target
-);
+namespace apogee
+{
+	// Run the radar processing chain for one radar-target pair.
+	std::optional<RangePulseProduct> update_radar(Entity &radar, const Entity &target);
+
+} // namespace apogee

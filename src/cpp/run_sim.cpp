@@ -17,216 +17,171 @@
 #include "systems/orbital_motion.hpp"
 #include "systems/radar_system.hpp"
 
-namespace
+namespace apogee
 {
-Entity instantiate(const EntityDefinition& definition)
-{
-    Entity entity{
-        .id = definition.id,
-        .key = definition.key,
-        .display_name = definition.display_name,
-        .type = definition.type,
-        .team = definition.team,
-        .kinematics = definition.ground
-            ? definition.ground->initial_kinematics()
-            : definition.satellite
-                ? definition.satellite->initial_kinematics()
-                : definition.initial_pursuit
-                    ? definition.initial_pursuit->initial_kinematics()
-                    : definition.initial_kinematics,
-        .radar_signature_dbsm = definition.radar_signature_dbsm
-    };
-    if (definition.radar)
-    {
-        entity.radar.emplace(*definition.radar);
-    }
-    return entity;
-}
+	namespace
+	{
+		Entity instantiate(const EntityDefinition &definition)
+		{
+			Entity entity{ .id = definition.id,
+				.key = definition.key,
+				.display_name = definition.display_name,
+				.type = definition.type,
+				.team = definition.team,
+				.kinematics = definition.ground		 ? definition.ground->initial_kinematics()
+							  : definition.satellite ? definition.satellite->initial_kinematics()
+							  : definition.initial_pursuit
+								  ? definition.initial_pursuit->initial_kinematics()
+								  : definition.initial_kinematics,
+				.radar_signature_dbsm = definition.radar_signature_dbsm };
+			if (definition.radar)
+			{
+				entity.radar.emplace(*definition.radar);
+			}
+			return entity;
+		}
 
-Entity& require_entity(std::vector<Entity>& entities, const std::string& key)
-{
-    const auto match = std::find_if(
-        entities.begin(),
-        entities.end(),
-        [&](const Entity& entity) { return entity.key == key; }
-    );
-    if (match == entities.end())
-    {
-        throw std::invalid_argument("Scenario is missing entity: " + key);
-    }
-    return *match;
-}
-}
+		Entity &require_entity(std::vector<Entity> &entities, const std::string &key)
+		{
+			const auto match = std::find_if(entities.begin(),
+				entities.end(),
+				[&](const Entity &entity) { return entity.key == key; });
+			if (match == entities.end())
+			{
+				throw std::invalid_argument("Scenario is missing entity: " + key);
+			}
+			return *match;
+		}
+	}
 
-Result run_sim(const ScenarioParams& params)
-{
-    const double dt_s = params.simulation.dt_s;
-    const double duration_s = params.simulation.duration_s;
+	Result run_sim(const ScenarioParams &params)
+	{
+		const double dt_s = params.simulation.dt_s;
+		const double duration_s = params.simulation.duration_s;
 
-    // Recreate all runtime entities so state starts fresh on every run.
-    std::vector<Entity> entities;
-    entities.reserve(params.entities.size());
-    for (const EntityDefinition& definition : params.entities)
-    {
-        entities.push_back(instantiate(definition));
-    }
+		// Recreate all runtime entities so state starts fresh on every run.
+		std::vector<Entity> entities;
+		entities.reserve(params.entities.size());
+		for (const EntityDefinition &definition : params.entities)
+		{
+			entities.push_back(instantiate(definition));
+		}
 
-    // Aim pursuit entities once at their targets' initial positions.
-    for (std::size_t index = 0; index < params.entities.size(); ++index)
-    {
-        const EntityDefinition& definition = params.entities[index];
-        if (!definition.initial_pursuit)
-        {
-            continue;
-        }
+		// Aim pursuit entities once at their targets' initial positions.
+		for (std::size_t index = 0; index < params.entities.size(); ++index)
+		{
+			const EntityDefinition &definition = params.entities[index];
+			if (!definition.initial_pursuit)
+			{
+				continue;
+			}
 
-        Entity& entity = entities[index];
-        const Entity& target = require_entity(
-            entities,
-            definition.initial_pursuit->target_key
-        );
-        const double dx = target.kinematics.pos_m.x - entity.kinematics.pos_m.x;
-        const double dy = target.kinematics.pos_m.y - entity.kinematics.pos_m.y;
-        const double dz = target.kinematics.pos_m.z - entity.kinematics.pos_m.z;
-        const double distance_m = std::hypot(dx, dy, dz);
-        if (distance_m == 0.0)
-        {
-            throw std::invalid_argument(
-                "Initial pursuit entity and target cannot share a position."
-            );
-        }
+			Entity &entity = entities[index];
+			const Entity &target = require_entity(entities, definition.initial_pursuit->target_key);
+			const double dx = target.kinematics.pos_m.x() - entity.kinematics.pos_m.x();
+			const double dy = target.kinematics.pos_m.y() - entity.kinematics.pos_m.y();
+			const double dz = target.kinematics.pos_m.z() - entity.kinematics.pos_m.z();
+			const double distance_m = std::hypot(dx, dy, dz);
+			if (distance_m == 0.0)
+			{
+				throw std::invalid_argument(
+					"Initial pursuit entity and target cannot share a position.");
+			}
 
-        const double scale = definition.initial_pursuit->speed_mps / distance_m;
-        entity.kinematics.vel_mps = Vec3{dx * scale, dy * scale, dz * scale};
-        entity.kinematics.accel_mps2 = Vec3{};
-    }
+			const double scale = definition.initial_pursuit->speed_mps / distance_m;
+			entity.kinematics.vel_mps = Vec3{ dx * scale, dy * scale, dz * scale };
+			entity.kinematics.accel_mps2 = Vec3::Zero();
+		}
 
-    // Select the fixed radar engagement by the entities' stable identities.
-    Entity& radar_entity = require_entity(entities, "blue_radar");
-    Entity& radar_target = require_entity(entities, "red_missile");
+		// Select the fixed radar engagement by the entities' stable identities.
+		Entity &radar_entity = require_entity(entities, "blue_radar");
+		Entity &radar_target = require_entity(entities, "red_missile");
 
-    // Create the result series before the timestep loop starts appending values.
-    Result result;
-    const LoggingLayout logging_layout = initialize_entity_state_logging(
-        entities,
-        result
-    );
-    std::optional<GridSeries2D> range_doppler_history;
-    MetricTable radar_state_history{
-        .entity_id = radar_entity.id,
-        .system = "radar",
-        .key = "state",
-        .name = "State Variables",
-        .time_axis = Axis{
-            .key = "simulation_time",
-            .name = "Time",
-            .unit = "s",
-            .kind = "time"
-        },
-        .metrics = {
-            MetricSeries{
-                .key = "target_range",
-                .name = "Target Range",
-                .unit = "m"
-            },
-            MetricSeries{
-                .key = "target_velocity",
-                .name = "Target Velocity",
-                .unit = "m/s"
-            },
-            MetricSeries{
-                .key = "signal_to_noise",
-                .name = "Signal-to-Noise Ratio",
-                .unit = "dB"
-            },
-            MetricSeries{
-                .key = "pulse_width",
-                .name = "Pulse Width",
-                .unit = "us",
-                .values = {radar_entity.radar->p.pw_us}
-            },
-            MetricSeries{
-                .key = "pulse_repetition_interval",
-                .name = "Pulse Repetition Interval",
-                .unit = "us",
-                .values = {radar_entity.radar->p.pri_us}
-            }
-        },
-        .presentation = Presentation{
-            .order = 30
-        }
-    };
+		// Create the result series before the timestep loop starts appending values.
+		Result result;
+		const LoggingLayout logging_layout = initialize_entity_state_logging(entities, result);
+		std::optional<GridSeries2D> range_doppler_history;
+		MetricTable radar_state_history{ .entity_id = radar_entity.id,
+			.system = "radar",
+			.key = "state",
+			.name = "State Variables",
+			.time_axis =
+				Axis{ .key = "simulation_time", .name = "Time", .unit = "s", .kind = "time" },
+			.metrics = { MetricSeries{ .key = "target_range", .name = "Target Range", .unit = "m" },
+				MetricSeries{ .key = "target_velocity", .name = "Target Velocity", .unit = "m/s" },
+				MetricSeries{
+					.key = "signal_to_noise", .name = "Signal-to-Noise Ratio", .unit = "dB" },
+				MetricSeries{ .key = "pulse_width",
+					.name = "Pulse Width",
+					.unit = "us",
+					.values = { radar_entity.radar->p.pw_us } },
+				MetricSeries{ .key = "pulse_repetition_interval",
+					.name = "Pulse Repetition Interval",
+					.unit = "us",
+					.values = { radar_entity.radar->p.pri_us } } },
+			.presentation = Presentation{ .order = 30 } };
 
-    // Log the current state, advance motion, then update radar once per timestep.
-    for (std::size_t step = 0;
-         static_cast<double>(step) * dt_s < duration_s;
-         ++step)
-    {
-        const double sim_time_s = static_cast<double>(step) * dt_s;
-        log_entity_states(entities, logging_layout, sim_time_s, result);
+		// Log the current state, advance motion, then update radar once per timestep.
+		for (std::size_t step = 0; static_cast<double>(step) * dt_s < duration_s; ++step)
+		{
+			const double sim_time_s = static_cast<double>(step) * dt_s;
+			log_entity_states(entities, logging_layout, sim_time_s, result);
 
-        for (Entity& entity : entities)
-        {
-            if (entity.type == "radar")
-                {advance_ground(entity.kinematics, dt_s);}
-            else if (entity.type == "satellite")
-                {advance_orbit(entity.kinematics, dt_s);}
-            else
-                {advance_kinematics(entity.kinematics, dt_s);}
-            
-        }
+			for (Entity &entity : entities)
+			{
+				if (entity.type == "radar")
+				{
+					advance_ground(entity.kinematics, dt_s);
+				}
+				else if (entity.type == "satellite")
+				{
+					advance_orbit(entity.kinematics, dt_s);
+				}
+				else
+				{
+					advance_kinematics(entity.kinematics, dt_s);
+				}
+			}
 
-        auto range_pulse = update_radar(radar_entity, radar_target);
-        const RadarState& radar_state = radar_entity.radar->state;
-        radar_state_history.time_axis.values.push_back(sim_time_s);
-        radar_state_history.metrics[0].values.push_back(
-            radar_state.target_range_m
-        );
-        radar_state_history.metrics[1].values.push_back(
-            radar_state.target_vel_mps
-        );
-        radar_state_history.metrics[2].values.push_back(
-            radar_state.signal_to_noise_db
-        );
+			auto range_pulse = update_radar(radar_entity, radar_target);
+			const RadarState &radar_state = radar_entity.radar->state;
+			radar_state_history.time_axis.values.push_back(sim_time_s);
+			radar_state_history.metrics[0].values.push_back(radar_state.target_range_m);
+			radar_state_history.metrics[1].values.push_back(radar_state.target_vel_mps);
+			radar_state_history.metrics[2].values.push_back(radar_state.signal_to_noise_db);
 
-        if (range_pulse)
-        {
-            GridSeries2D frame = make_noisy_range_doppler_series(
-                *range_pulse,
-                radar_entity.radar->p,
-                radar_entity.id,
-                sim_time_s
-            );
-            if (!range_doppler_history)
-            {
-                range_doppler_history = std::move(frame);
-            }
-            else
-            {
-                range_doppler_history->time_axis.values.push_back(sim_time_s);
-                range_doppler_history->values.insert(
-                    range_doppler_history->values.end(),
-                    frame.values.begin(),
-                    frame.values.end()
-                );
-            }
-        }
-    }
+			if (range_pulse)
+			{
+				GridSeries2D frame = make_noisy_range_doppler_series(
+					*range_pulse, radar_entity.radar->p, radar_entity.id, sim_time_s);
+				if (!range_doppler_history)
+				{
+					range_doppler_history = std::move(frame);
+				}
+				else
+				{
+					range_doppler_history->time_axis.values.push_back(sim_time_s);
+					range_doppler_history->values.insert(range_doppler_history->values.end(),
+						frame.values.begin(),
+						frame.values.end());
+				}
+			}
+		}
 
-    if (range_doppler_history)
-    {
-        result.grid_series.push_back(std::move(*range_doppler_history));
-    }
-    result.metric_tables.push_back(std::move(radar_state_history));
+		if (range_doppler_history)
+		{
+			result.grid_series.push_back(std::move(*range_doppler_history));
+		}
+		result.metric_tables.push_back(std::move(radar_state_history));
 
-    // Run non-timestep analysis after the scenario history is complete.
-    add_snr_range_curve(
-        radar_entity.radar->p,
-        radar_target.radar_signature_dbsm,
-        params.radar_analysis,
-        radar_entity.id,
-        result
-    );
+		// Run non-timestep analysis after the scenario history is complete.
+		add_snr_range_curve(radar_entity.radar->p,
+			radar_target.radar_signature_dbsm,
+			params.radar_analysis,
+			radar_entity.id,
+			result);
 
-    return result;
-}
+		return result;
+	}
+
+} // namespace apogee

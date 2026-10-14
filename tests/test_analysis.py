@@ -20,6 +20,10 @@ def _radar_result():
     apogee.set_parameter(params, "blue_radar.radar.bandwidth_hz", 10_000.0)
     apogee.set_parameter(params, "blue_radar.radar.pulse_width_us", 100.0)
     apogee.set_parameter(params, "blue_radar.radar.pri_us", 1_000.0)
+    # Place the target 100 km above the radar, inside its 15–150 km detection window.
+    apogee.set_parameter(params, "red_missile.initial_pursuit.latitude_deg", 0.0)
+    apogee.set_parameter(params, "red_missile.initial_pursuit.longitude_deg", 180.0)
+    apogee.set_parameter(params, "red_missile.initial_pursuit.altitude_m", 100_000.0)
     return apogee.run_sim(params)
 
 
@@ -105,6 +109,9 @@ apogee.set_parameter(params, 'simulation.duration_s', 0.2)
 apogee.set_parameter(params, 'blue_radar.radar.bandwidth_hz', 10000.0)
 apogee.set_parameter(params, 'blue_radar.radar.pulse_width_us', 100.0)
 apogee.set_parameter(params, 'blue_radar.radar.pri_us', 1000.0)
+apogee.set_parameter(params, 'red_missile.initial_pursuit.latitude_deg', 0.0)
+apogee.set_parameter(params, 'red_missile.initial_pursuit.longitude_deg', 180.0)
+apogee.set_parameter(params, 'red_missile.initial_pursuit.altitude_m', 100000.0)
 catalog = build_analysis_catalog(apogee.run_sim(params))
 app = QApplication([])
 workspace = AnalysisWorkspace(catalog)
