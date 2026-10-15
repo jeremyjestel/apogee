@@ -1,4 +1,4 @@
-#include "systems/orbital_motion.hpp"
+#include "motion/models/orbital_motion.hpp"
 #include "core/constants.hpp"
 
 namespace apogee

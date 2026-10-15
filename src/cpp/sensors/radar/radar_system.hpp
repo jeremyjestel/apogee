@@ -3,7 +3,7 @@
 #include <optional>
 
 #include "core/entity.hpp"
-#include "systems/range_doppler_map.hpp"
+#include "sensors/radar/models/range_doppler_map.hpp"
 
 namespace apogee
 {

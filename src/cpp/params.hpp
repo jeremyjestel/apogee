@@ -7,7 +7,7 @@
 #include <tuple>
 
 #include "core/constants.hpp"
-#include "core/kinematic_state.hpp"
+#include "motion/kinematic_state.hpp"
 #include "math/coords.hpp"
 
 namespace apogee

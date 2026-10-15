@@ -3,8 +3,8 @@
 #include <optional>
 #include <string>
 
-#include "core/kinematic_state.hpp"
-#include "core/radar_module.hpp"
+#include "motion/kinematic_state.hpp"
+#include "sensors/radar/radar_state.hpp"
 
 namespace apogee
 {

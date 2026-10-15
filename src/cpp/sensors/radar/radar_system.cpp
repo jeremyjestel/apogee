@@ -1,6 +1,6 @@
-#include "systems/radar_system.hpp"
+#include "sensors/radar/radar_system.hpp"
 
-#include "systems/range_doppler_map.hpp"
+#include "sensors/radar/models/range_doppler_map.hpp"
 
 namespace apogee
 {

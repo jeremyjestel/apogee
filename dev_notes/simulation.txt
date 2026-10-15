@@ -32,13 +32,15 @@ Simulation for the interaction of each in time
 Analysis will be done with plots in matplotlib
 Simulation motion will be rerun and other data will be matplotlib
 
-core/
-    World: owns entities and associates IDs with components
-components/
-    Definitions of KinematicState, RadarComponent, etc.
-archetypes/
-    Functions that create an ID and assign a standard set of components
-systems/
-    Processes entities possessing particular components
-math/
-    Reusable types such as Vec3
+src/cpp/core/
+    Shared entity definitions, results, and constants
+src/cpp/motion/
+    KinematicState and ground/orbital motion
+src/cpp/scenarios/
+    Scenario parameters and default entity definitions
+src/cpp/simulation/
+    Scenario runtime and orchestration
+src/cpp/sensors/radar/
+    Radar parameters, processing, and range-Doppler maps
+src/cpp/math/
+    Coordinate transforms, reusable types such as Vec3, and geometry/

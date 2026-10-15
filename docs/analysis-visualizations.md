@@ -76,8 +76,8 @@ Only introduce another result type when these three cannot represent the data
 faithfully. The extension points are deliberately small:
 
 1. Define and bind the C++ DTO.
-2. Add one normalizer in `analysis/catalog.py`.
-3. Add one widget factory to `RENDERERS` in `analysis/renderers.py`.
+2. Add one normalizer in `src/python/analysis/catalog.py`.
+3. Add one widget factory to `RENDERERS` in `src/python/analysis/renderers.py`.
 
 The navigator and unified application shell require no changes. Rerun requires
 changes only for genuine scene or timeline telemetry.

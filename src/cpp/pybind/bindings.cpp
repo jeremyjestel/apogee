@@ -9,12 +9,12 @@
 
 #include "core/constants.hpp"
 #include "core/entity_definition.hpp"
-#include "core/kinematic_state.hpp"
+#include "motion/kinematic_state.hpp"
 #include "core/result.hpp"
-#include "core/scenario_params.hpp"
+#include "scenarios/scenario_params.hpp"
 #include "params.hpp"
 #include "run_sim.hpp"
-#include "scenarios/default/default_scenario.hpp"
+#include "scenarios/default_scenario.hpp"
 
 namespace apogee
 {

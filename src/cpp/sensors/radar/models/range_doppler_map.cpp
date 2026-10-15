@@ -1,4 +1,4 @@
-#include "systems/range_doppler_map.hpp"
+#include "sensors/radar/models/range_doppler_map.hpp"
 
 #include <Eigen/Dense>
 #include <cmath>
@@ -7,7 +7,7 @@
 #include <utility>
 
 #include "core/constants.hpp"
-#include "math/radar_range_equation.hpp"
+#include "sensors/radar/models/radar_range_equation.hpp"
 
 namespace apogee
 {

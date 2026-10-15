@@ -18,6 +18,7 @@ cmake --build build --config Release
 python src/python/main.py
 
 
-creates apogee.pyd and must be copied next to main.py
+creates the apogee extension in build/Release (or build/Debug for a Debug build)
+src/python/add_build_to_path.py locates the extension when main.py starts
 
 Need to build c++ to run the main.py

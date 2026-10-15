@@ -1,4 +1,4 @@
-#include "scenarios/default/default_scenario.hpp"
+#include "scenarios/default_scenario.hpp"
 
 #include "core/constants.hpp"
 #include "params.hpp"

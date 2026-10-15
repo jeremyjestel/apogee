@@ -4,7 +4,7 @@
 #include <vector>
 
 #include "core/entity.hpp"
-#include "core/scenario_params.hpp"
+#include "scenarios/scenario_params.hpp"
 
 namespace apogee
 {

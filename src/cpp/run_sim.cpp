@@ -7,9 +7,9 @@
 
 #include "analysis/radar_range.hpp"
 #include "core/entity.hpp"
-#include "logging.hpp"
+#include "logging/logging.hpp"
 #include "simulation/scenario_runtime.hpp"
-#include "systems/radar_system.hpp"
+#include "sensors/radar/radar_system.hpp"
 
 namespace apogee
 {

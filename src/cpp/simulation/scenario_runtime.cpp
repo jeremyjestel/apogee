@@ -5,9 +5,9 @@
 #include <cstddef>
 #include <stdexcept>
 
-#include "systems/ground_motion.hpp"
-#include "systems/motion_system.hpp"
-#include "systems/orbital_motion.hpp"
+#include "motion/models/ground_motion.hpp"
+#include "motion/models/motion_system.hpp"
+#include "motion/models/orbital_motion.hpp"
 
 namespace apogee
 {

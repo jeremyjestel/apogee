@@ -5,7 +5,7 @@
 #include <vector>
 
 #include "core/constants.hpp"
-#include "math/radar_range_equation.hpp"
+#include "sensors/radar/models/radar_range_equation.hpp"
 
 namespace apogee
 {

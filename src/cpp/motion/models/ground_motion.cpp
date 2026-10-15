@@ -1,4 +1,4 @@
-#include "systems/ground_motion.hpp"
+#include "motion/models/ground_motion.hpp"
 
 #include <cmath>
 

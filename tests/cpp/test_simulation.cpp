@@ -6,10 +6,10 @@
 
 #include "run_sim.hpp"
 #include "math/coords.hpp"
-#include "scenarios/default/default_scenario.hpp"
-#include "systems/ground_motion.hpp"
-#include "systems/motion_system.hpp"
-#include "systems/range_doppler_map.hpp"
+#include "scenarios/default_scenario.hpp"
+#include "motion/models/ground_motion.hpp"
+#include "motion/models/motion_system.hpp"
+#include "sensors/radar/models/range_doppler_map.hpp"
 
 namespace
 {

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "core/result.hpp"
-#include "core/scenario_params.hpp"
+#include "scenarios/scenario_params.hpp"
 
 namespace apogee
 {

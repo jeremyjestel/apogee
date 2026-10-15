@@ -6,16 +6,17 @@ find_package(Eigen3 CONFIG REQUIRED)
 # Keep simulation logic reusable without depending on Python bindings.
 add_library(apogee_core STATIC
     src/cpp/analysis/radar_range.cpp
-    src/cpp/logging.cpp
-    src/cpp/math/radar_range_equation.cpp
+    src/cpp/motion/models/ground_motion.cpp
+    src/cpp/motion/models/motion_system.cpp
+    src/cpp/motion/models/orbital_motion.cpp
+    src/cpp/logging/logging.cpp
+    src/cpp/math/geometry/los_occluded.cpp
     src/cpp/run_sim.cpp
-    src/cpp/scenarios/default/default_scenario.cpp
+    src/cpp/scenarios/default_scenario.cpp
     src/cpp/simulation/scenario_runtime.cpp
-    src/cpp/systems/ground_motion.cpp
-    src/cpp/systems/motion_system.cpp
-    src/cpp/systems/orbital_motion.cpp
-    src/cpp/systems/radar_system.cpp
-    src/cpp/systems/range_doppler_map.cpp
+    src/cpp/sensors/radar/models/radar_range_equation.cpp
+    src/cpp/sensors/radar/radar_system.cpp
+    src/cpp/sensors/radar/models/range_doppler_map.cpp
 )
 
 target_include_directories(apogee_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src/cpp")
@@ -30,7 +31,7 @@ if(APOGEE_BUILD_PYTHON)
     find_package(pybind11 CONFIG REQUIRED)
 
     # Preserve the public extension name while keeping its target focused on bindings.
-    pybind11_add_module(apogee src/cpp/bindings.cpp)
+    pybind11_add_module(apogee src/cpp/pybind/bindings.cpp)
     target_link_libraries(apogee PRIVATE apogee_core)
     if(MSVC)
         target_compile_options(apogee PRIVATE /FS)
@@ -42,6 +43,10 @@ if(BUILD_TESTING)
     add_executable(apogee_core_tests tests/cpp/test_simulation.cpp)
     target_link_libraries(apogee_core_tests PRIVATE apogee_core)
     add_test(NAME apogee_core_tests COMMAND apogee_core_tests)
+
+    add_executable(apogee_coords_tests tests/cpp/test_coords.cpp)
+    target_link_libraries(apogee_coords_tests PRIVATE apogee_core)
+    add_test(NAME apogee_coords_tests COMMAND apogee_coords_tests)
 endif()
 
 if(MSVC)

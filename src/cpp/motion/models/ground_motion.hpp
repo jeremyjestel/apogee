@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core/kinematic_state.hpp"
+#include "motion/kinematic_state.hpp"
 
 namespace apogee
 {

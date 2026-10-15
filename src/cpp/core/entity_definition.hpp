@@ -4,7 +4,7 @@
 #include <string>
 #include <tuple>
 
-#include "core/kinematic_state.hpp"
+#include "motion/kinematic_state.hpp"
 #include "params.hpp"
 
 namespace apogee
