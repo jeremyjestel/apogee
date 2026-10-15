@@ -60,8 +60,8 @@ def _positions_on_axis(
 ):
     """Align scenario arrow origins when a vector has its own timeline."""
 
-    source = np.asarray(position_coordinates, dtype=np.float64).copy()
-    target = np.asarray(target_coordinates, dtype=np.float64).copy()
+    source = np.array(position_coordinates, dtype=np.float64, copy=True)
+    target = np.array(target_coordinates, dtype=np.float64, copy=True)
     if position_axis.kind != target_axis.kind:
         raise ValueError("Scenario vectors must use compatible timeline kinds")
     if position_axis.kind == "time":

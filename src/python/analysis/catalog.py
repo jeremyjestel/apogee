@@ -80,7 +80,7 @@ class AnalysisCatalog:
 
 
 def _array(values):
-    array = np.asarray(values, dtype=np.float64)
+    array = np.array(values, dtype=np.float64, copy=True)
     array.setflags(write=False)
     return array
 
@@ -148,7 +148,6 @@ def _grid_series(item, entities, sequence):
     if values.size != np.prod(shape, dtype=np.int64):
         raise ValueError(f"Grid series {item.key} axes and values do not match")
     values = values.reshape(shape)
-    values.setflags(write=False)
     if shape[1:] != (len(y_axis.values), len(x_axis.values)):
         raise ValueError(f"Grid series {item.key} spatial axes do not match")
     display_range = (
@@ -170,10 +169,10 @@ def _grid_series(item, entities, sequence):
 
 def _metric_table(item, entities, sequence):
     time_axis = _axis(item.time_axis)
+    valid_lengths = {1, len(time_axis.values)}
     metrics = []
     for metric in item.metrics:
         values = _array(metric.values)
-        valid_lengths = {1, len(time_axis.values)} if len(time_axis.values) else {0, 1}
         if values.ndim != 1 or len(values) not in valid_lengths:
             raise ValueError(
                 f"Metric {metric.key} must be constant or match its time axis"

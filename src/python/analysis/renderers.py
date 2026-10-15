@@ -1,9 +1,5 @@
 """Qt/Matplotlib renderers for the three supported analysis shapes."""
 
-import matplotlib
-
-matplotlib.use("qtagg")
-
 import numpy as np
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg, NavigationToolbar2QT
 from matplotlib.figure import Figure

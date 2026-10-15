@@ -50,7 +50,9 @@ def _values(series, source_type):
             dtype=np.float64,
         ).reshape((-1, 3))
     else:
-        values = np.asarray(series.values, dtype=np.float64)
+        values = np.array(series.values, dtype=np.float64, copy=True)
+        if values.ndim != 1:
+            raise ValueError(f"Telemetry {series.system}/{series.key} must be scalar")
     values.setflags(write=False)
     return values
 
@@ -63,7 +65,10 @@ def build_telemetry_catalog(result):
     if len(entities) != len(entity_items):
         raise ValueError("Entity ids must be unique")
 
-    all_axes = {axis.key: axis for axis in tuple(result.axes)}
+    axis_items = tuple(result.axes)
+    all_axes = {axis.key: axis for axis in axis_items}
+    if len(all_axes) != len(axis_items):
+        raise ValueError("Axis keys must be unique")
     axes = {
         key: axis for key, axis in all_axes.items() if axis.kind in TIME_AXIS_KINDS
     }
@@ -71,7 +76,9 @@ def build_telemetry_catalog(result):
     for key, axis in axes.items():
         if axis.kind == "time" and axis.unit not in TIME_UNIT_TO_SECONDS:
             raise ValueError(f"Unsupported time unit {axis.unit!r} for {key}")
-        values = np.asarray(axis.values, dtype=np.float64)
+        values = np.array(axis.values, dtype=np.float64, copy=True)
+        if values.ndim != 1:
+            raise ValueError(f"Timeline {key!r} must be one-dimensional")
         values.setflags(write=False)
         coordinates[key] = values
 

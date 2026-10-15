@@ -83,13 +83,13 @@ class AnalysisWorkspace(QSplitter):
         )
 
         for index, product in products:
-            owner = owners.get(product.owner_key)
+            owner = owners.get(product.entity_id)
             if owner is None:
                 owner = QTreeWidgetItem([product.owner_name])
                 self.navigator.addTopLevelItem(owner)
-                owners[product.owner_key] = owner
+                owners[product.entity_id] = owner
 
-            system_key = product.owner_key, product.system
+            system_key = product.entity_id, product.system
             system = systems.get(system_key)
             if system is None:
                 system = QTreeWidgetItem(owner, [_display_name(product.system)])
@@ -97,7 +97,7 @@ class AnalysisWorkspace(QSplitter):
 
             parent = system
             if product.group:
-                group_key = product.owner_key, product.system, product.group
+                group_key = product.entity_id, product.system, product.group
                 parent = groups.get(group_key)
                 if parent is None:
                     parent = QTreeWidgetItem(system, [product.group])

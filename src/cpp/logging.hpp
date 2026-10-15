@@ -32,4 +32,7 @@ namespace apogee
 		double time_s,
 		Result &result);
 
+	MetricTable initialize_radar_state_logging(int entity_id, const RadarParams &params);
+	void log_radar_state(const RadarState &state, double time_s, MetricTable &table);
+
 } // namespace apogee

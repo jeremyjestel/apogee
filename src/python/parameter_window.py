@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import json
-import math
 from pathlib import Path
 import sys
 import threading
@@ -27,56 +25,14 @@ from PySide6.QtWidgets import (
 )
 
 from analysis import AnalysisWorkspace, build_analysis_catalog
+from scenario import (
+    PARAMETER_SPECS,
+    create_params_from_text,
+    decode_scenario,
+    default_parameter_values,
+    encode_scenario,
+)
 from visualization import view_rerun
-
-
-# C++ remains the source of truth for parameter names, units, paths, and defaults.
-PARAMETER_SPECS = apogee.parameter_specs()
-
-
-def default_parameter_values():
-    params = apogee.Params()
-    return {
-        spec.path: str(apogee.get_parameter(params, spec.path))
-        for spec in PARAMETER_SPECS
-    }
-
-
-def create_params_from_text(values):
-    params = apogee.Params()
-    for spec in PARAMETER_SPECS:
-        apogee.set_parameter(params, spec.path, float(values[spec.path]))
-    return params
-
-
-def _validated_scenario_values(values):
-    if not isinstance(values, dict):
-        raise ValueError("Scenario parameters must be an object of parameter paths and values.")
-
-    expected = {spec.path for spec in PARAMETER_SPECS}
-    missing = expected - values.keys()
-    unknown = values.keys() - expected
-    if missing or unknown:
-        details = []
-        if missing:
-            details.append("Missing parameters: " + ", ".join(sorted(missing)))
-        if unknown:
-            details.append("Unknown parameters: " + ", ".join(sorted(unknown)))
-        raise ValueError("\n".join(details))
-
-    result = {}
-    for spec in PARAMETER_SPECS:
-        value = values[spec.path]
-        if isinstance(value, bool) or not isinstance(value, (str, int, float)):
-            raise ValueError(f"{spec.path} must have a numeric value.")
-        try:
-            finite = math.isfinite(float(value))
-        except (ValueError, OverflowError):
-            finite = False
-        if not finite:
-            raise ValueError(f"{spec.path} must have a finite numeric value.")
-        result[spec.path] = str(value)
-    return result
 
 
 def _parameter_groups():
@@ -201,8 +157,15 @@ class ParameterWindow(QMainWindow):
         )
 
     def _parameters_changed(self):
-        if self.status.text().startswith("Loaded scenario: "):
+        if self.status.text().startswith(("Loaded scenario: ", "Saved scenario: ")):
             self.status.setText("Parameters modified")
+
+    def _entry_values(self):
+        return {path: entry.text() for path, entry in self.entries.items()}
+
+    def _set_running(self, running):
+        for button in (self.run_button, self.save_button, self.load_button):
+            button.setEnabled(not running)
 
     def save_scenario(self):
         filename, _ = QFileDialog.getSaveFileName(
@@ -212,11 +175,7 @@ class ParameterWindow(QMainWindow):
             return
 
         try:
-            values = _validated_scenario_values(
-                {path: entry.text() for path, entry in self.entries.items()}
-            )
-            scenario = (json.dumps({"version": 1, "parameters": values}, indent=2) + "\n")
-            data = scenario.encode("utf-8")
+            data = encode_scenario(self._entry_values()).encode("utf-8")
             scenario_file = QSaveFile(filename)
             if not scenario_file.open(QIODevice.OpenModeFlag.WriteOnly):
                 raise OSError(scenario_file.errorString())
@@ -239,12 +198,7 @@ class ParameterWindow(QMainWindow):
             return
 
         try:
-            scenario = json.loads(Path(filename).read_text(encoding="utf-8-sig"))
-            if not isinstance(scenario, dict) or type(scenario.get("version")) is not int:
-                raise ValueError("This file is not an Apogee scenario.")
-            if scenario["version"] != 1:
-                raise ValueError("This scenario file version is not supported.")
-            values = _validated_scenario_values(scenario.get("parameters"))
+            values = decode_scenario(Path(filename).read_text(encoding="utf-8-sig"))
         except (OSError, ValueError) as error:
             QMessageBox.critical(self, "Could not load scenario", str(error))
             return
@@ -256,19 +210,17 @@ class ParameterWindow(QMainWindow):
         self.status.setText(f"Loaded scenario: {Path(filename).name}")
 
     def run_simulation(self):
-        if self._run_thread is not None and self._run_thread.is_alive():
+        # A finished worker can still have its completion queued on the GUI thread.
+        if self._run_thread is not None:
             return
 
-        values = {path: entry.text() for path, entry in self.entries.items()}
         try:
-            params = create_params_from_text(values)
+            params = create_params_from_text(self._entry_values())
         except (KeyError, TypeError, ValueError) as error:
             QMessageBox.critical(self, "Invalid parameters", str(error))
             return
 
-        self.run_button.setEnabled(False)
-        self.save_button.setEnabled(False)
-        self.load_button.setEnabled(False)
+        self._set_running(True)
         self.status.setText("Running simulation…")
         self._cancel_run.clear()
         self._run_thread = threading.Thread(
@@ -294,16 +246,19 @@ class ParameterWindow(QMainWindow):
             except Exception as error:
                 rerun_error = error
         except Exception as error:
-            self._run_finished.emit(None, error)
+            if not self._cancel_run.is_set():
+                self._run_finished.emit(None, error)
             return
 
-        self._run_finished.emit(catalog, rerun_error)
+        if not self._cancel_run.is_set():
+            self._run_finished.emit(catalog, rerun_error)
 
     def _simulation_finished(self, catalog, error):
         self._run_thread = None
-        self.run_button.setEnabled(True)
-        self.save_button.setEnabled(True)
-        self.load_button.setEnabled(True)
+        # The window may close after the worker has emitted its queued signal.
+        if self._cancel_run.is_set():
+            return
+        self._set_running(False)
 
         if catalog is None:
             self.status.setText("Simulation failed")

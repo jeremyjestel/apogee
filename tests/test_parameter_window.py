@@ -130,6 +130,19 @@ def test_scenario_save_load_preserves_text_and_builds_parameters(
     assert errors == []
 
 
+def test_editing_a_saved_scenario_updates_status(scenario_window, monkeypatch, tmp_path):
+    window, errors = scenario_window
+    _select_file(monkeypatch, "getSaveFileName", tmp_path / "scenario.json")
+
+    window.save_scenario()
+    assert window.status.text() == "Saved scenario: scenario.json"
+
+    next(iter(window.entries.values())).setText("42")
+
+    assert window.status.text() == "Parameters modified"
+    assert errors == []
+
+
 @pytest.mark.parametrize("encoding", ["utf-8", "utf-8-sig"])
 def test_scenario_load_accepts_numeric_values(
     scenario_window, monkeypatch, tmp_path, encoding
@@ -292,3 +305,89 @@ def test_scenario_buttons_are_disabled_during_run_and_reenabled_after_failure(
     assert window.save_button.isEnabled()
     assert window.load_button.isEnabled()
     assert len(errors) == 1
+
+
+@pytest.mark.parametrize("invalid_value", ["not numeric", "nan", "inf", "-inf", "1e5000"])
+def test_invalid_run_does_not_start_a_worker(scenario_window, monkeypatch, invalid_value):
+    window, errors = scenario_window
+    path = next(iter(window.entries))
+    window.entries[path].setText(invalid_value)
+
+    def unexpected_thread(**kwargs):
+        pytest.fail("Invalid parameters must not start a simulation thread")
+
+    monkeypatch.setattr(parameter_window.threading, "Thread", unexpected_thread)
+
+    window.run_simulation()
+
+    assert window._run_thread is None
+    assert window.run_button.isEnabled()
+    assert window.save_button.isEnabled()
+    assert window.load_button.isEnabled()
+    assert errors[0][0] == "Invalid parameters"
+    assert path in errors[0][1]
+
+
+def test_run_waits_for_completion_handler_before_starting_another_worker(
+    scenario_window, monkeypatch
+):
+    window, errors = scenario_window
+    starts = []
+
+    class PendingCompletion:
+        def __init__(self, **kwargs):
+            pass
+
+        def start(self):
+            starts.append(self)
+
+        def is_alive(self):
+            return False
+
+    monkeypatch.setattr(parameter_window.threading, "Thread", PendingCompletion)
+
+    window.run_simulation()
+    window.run_simulation()
+
+    assert len(starts) == 1
+    assert errors == []
+
+
+@pytest.mark.parametrize("catalog", [None, AnalysisCatalog(entities=(), products=())])
+def test_queued_completion_after_close_does_not_change_ui(scenario_window, catalog):
+    window, errors = scenario_window
+    original_widget = window._analysis_widget
+    window.close()
+
+    window._simulation_finished(catalog, RuntimeError("Late error"))
+
+    assert window._analysis_widget is original_widget
+    assert window.status.text() == "Ready"
+    assert errors == []
+
+
+def test_worker_failure_after_close_does_not_report_an_error(scenario_window, monkeypatch):
+    window, errors = scenario_window
+
+    def failed_run(params):
+        raise RuntimeError("Worker stopped after close")
+
+    monkeypatch.setattr(parameter_window.apogee, "run_sim", failed_run)
+    window.close()
+
+    window._run_worker(object())
+    _application().processEvents()
+
+    assert window.status.text() == "Ready"
+    assert errors == []
+
+
+@pytest.mark.parametrize("operation", ["get_parameter", "set_parameter"])
+def test_parameter_path_lookup_rejects_unknown_paths(operation):
+    params = parameter_window.apogee.Params()
+    arguments = (params, "missing.parameter")
+    if operation == "set_parameter":
+        arguments += (1.0,)
+
+    with pytest.raises(ValueError, match="Unknown parameter path: missing.parameter"):
+        getattr(parameter_window.apogee, operation)(*arguments)

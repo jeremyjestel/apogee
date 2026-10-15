@@ -1,3 +1,4 @@
+from types import SimpleNamespace
 from unittest.mock import Mock
 
 import numpy as np
@@ -5,7 +6,7 @@ import pytest
 import rerun as rr
 
 import apogee
-from parameter_window import create_params_from_text, default_parameter_values
+from scenario import create_params_from_text, default_parameter_values
 from visualization import rerun_adapter
 from visualization.rerun_adapter import _log_result
 from visualization.telemetry_catalog import build_telemetry_catalog
@@ -22,6 +23,18 @@ def _short_result():
     params = apogee.Params()
     apogee.set_parameter(params, "simulation.duration_s", 0.1)
     return apogee.run_sim(params)
+
+
+def _telemetry_result(coordinates):
+    axis = SimpleNamespace(
+        key="timeline", name="Timeline", kind="time", unit="s",
+        values=np.array(coordinates, dtype=np.float64),
+    )
+    scalar = SimpleNamespace(
+        entity_id=0, system="test", key="value", name="Value", unit="",
+        axis_key=axis.key, values=np.arange(len(coordinates), dtype=np.float64),
+    )
+    return SimpleNamespace(entities=[], axes=[axis], vectors=[], scalars=[scalar])
 
 
 def test_parameter_schema_defaults_and_text_round_trip():
@@ -424,6 +437,36 @@ def test_telemetry_catalog_contains_only_timeline_series():
         "acceleration",
         "speed",
     }
+
+
+def test_telemetry_catalog_rejects_duplicate_axis_keys():
+    result = _telemetry_result([0.0, 1.0])
+    result.axes.append(result.axes[0])
+    with pytest.raises(ValueError, match="Axis keys must be unique"):
+        build_telemetry_catalog(result)
+
+
+def test_telemetry_catalog_rejects_multidimensional_timelines():
+    with pytest.raises(ValueError, match="one-dimensional"):
+        build_telemetry_catalog(_telemetry_result([[0.0, 1.0]]))
+
+
+def test_telemetry_catalog_rejects_multidimensional_scalar_values():
+    result = _telemetry_result([0.0])
+    result.scalars[0].values = np.array([[1.0, 2.0]])
+    with pytest.raises(ValueError, match="must be scalar"):
+        build_telemetry_catalog(result)
+
+
+def test_telemetry_catalog_owns_its_read_only_arrays():
+    result = _telemetry_result([0.0, 1.0])
+    view = build_telemetry_catalog(result).views[0]
+    result.axes[0].values[0] = 2.0
+    result.scalars[0].values[0] = 3.0
+    assert view.coordinates.tolist() == [0.0, 1.0]
+    assert view.values.tolist() == [0.0, 1.0]
+    assert not view.coordinates.flags.writeable
+    assert not view.values.flags.writeable
 
 
 def test_rerun_logging_emits_scene_and_telemetry_but_no_analysis_artifacts():

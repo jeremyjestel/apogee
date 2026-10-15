@@ -1,8 +1,5 @@
 #include "systems/orbital_motion.hpp"
-#include <cmath>
-#include <complex>
 #include "core/constants.hpp"
-#include <iostream>
 
 namespace apogee
 {

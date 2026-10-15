@@ -1,6 +1,8 @@
+import os
 from pathlib import Path
 import subprocess
 import sys
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -49,6 +51,22 @@ def _curve(key, *, order=0, group=""):
     return curve
 
 
+def _run_script(script):
+    source_root = Path(__file__).resolve().parents[1] / "src" / "python"
+    environment = os.environ.copy()
+    environment["QT_QPA_PLATFORM"] = "offscreen"
+    completed = subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=source_root,
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+
+
 def test_analysis_catalog_normalizes_the_three_supported_shapes():
     catalog = build_analysis_catalog(_radar_result())
     radar = next(entity for entity in catalog.entities if entity.key == "blue_radar")
@@ -94,15 +112,80 @@ def test_analysis_catalog_rejects_duplicate_product_identity():
         build_analysis_catalog(result)
 
 
+def test_analysis_catalog_owns_its_read_only_arrays():
+    axis_values = np.array([1.0])
+    curve_values = np.array([2.0])
+    curve = SimpleNamespace(
+        entity_id=0, system="test", key="curve", name="Curve", value_unit="",
+        presentation=SimpleNamespace(group="", order=0),
+        x_axis=SimpleNamespace(
+            key="x", name="X", unit="", kind="continuous", values=axis_values,
+        ),
+        values=curve_values,
+    )
+    result = SimpleNamespace(entities=[], curves=[curve], grid_series=[], metric_tables=[])
+
+    product = build_analysis_catalog(result).products[0]
+    axis_values[0] = 3.0
+    curve_values[0] = 4.0
+
+    assert product.axes[0].values.tolist() == [1.0]
+    assert product.values.tolist() == [2.0]
+    assert not product.values.flags.writeable
+
+
+def test_analysis_catalog_can_be_imported_without_gui_libraries():
+    _run_script("""
+import sys
+from analysis import build_analysis_catalog
+assert 'matplotlib' not in sys.modules
+assert 'PySide6' not in sys.modules
+""")
+
+
+def test_analysis_navigator_groups_by_entity_identity():
+    _run_script("""
+from PySide6.QtWidgets import QApplication, QLabel
+from analysis.catalog import AnalysisCatalog, AnalysisProduct, EntityData
+from analysis import AnalysisWorkspace
+from analysis.renderers import RENDERERS
+
+app = QApplication([])
+entities = tuple(
+    EntityData(index, 'global', name, 'test', '')
+    for index, name in ((1, 'First'), (2, 'Second'))
+)
+products = tuple(
+    AnalysisProduct('test', entity, 'system', 'key', 'Product', group='Group')
+    for entity in (*entities, None)
+)
+RENDERERS['test'] = lambda product: QLabel(product.name)
+workspace = AnalysisWorkspace(AnalysisCatalog(entities, products))
+assert workspace.navigator.topLevelItemCount() == 3
+assert [
+    workspace.navigator.topLevelItem(index).text(0)
+    for index in range(3)
+] == ['First', 'Second', 'Global']
+for index in range(3):
+    owner = workspace.navigator.topLevelItem(index)
+    assert owner.childCount() == 1
+    assert owner.child(0).child(0).text(0) == 'Group'
+    assert owner.child(0).child(0).childCount() == 1
+workspace.close()
+""")
+
+
 def test_offscreen_analysis_workspace_and_time_controls():
-    source_root = Path(__file__).resolve().parents[1] / "src" / "python"
     script = """
 from add_build_to_path import add_apogee_build_to_path
 add_apogee_build_to_path()
 import apogee
+import matplotlib
+matplotlib.use('agg')
 from PySide6.QtWidgets import QApplication
 from analysis import AnalysisWorkspace, build_analysis_catalog
 from analysis.renderers import GRID_SERIES, METRIC_TABLE, RENDERERS
+assert matplotlib.get_backend().lower() == 'agg'
 
 params = apogee.Params()
 apogee.set_parameter(params, 'simulation.duration_s', 0.2)
@@ -127,15 +210,4 @@ for product in catalog.products:
 workspace.close()
 app.processEvents()
 """
-    environment = dict(**__import__("os").environ)
-    environment["QT_QPA_PLATFORM"] = "offscreen"
-    completed = subprocess.run(
-        [sys.executable, "-c", script],
-        cwd=source_root,
-        env=environment,
-        capture_output=True,
-        text=True,
-        timeout=60,
-        check=False,
-    )
-    assert completed.returncode == 0, completed.stdout + completed.stderr
+    _run_script(script)

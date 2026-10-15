@@ -1,6 +1,5 @@
 #include "logging.hpp"
 
-#include <cmath>
 #include <cstddef>
 
 #include "core/constants.hpp"
@@ -90,6 +89,37 @@ namespace apogee
 			const Vec3 &velocity = entity.kinematics.vel_mps;
 			result.scalars[handles.speed_series].values.push_back(velocity.norm());
 		}
+	}
+
+	MetricTable initialize_radar_state_logging(int entity_id, const RadarParams &params)
+	{
+		return MetricTable{ .entity_id = entity_id,
+			.system = "radar",
+			.key = "state",
+			.name = "State Variables",
+			.time_axis =
+				Axis{ .key = "simulation_time", .name = "Time", .unit = "s", .kind = "time" },
+			.metrics = { MetricSeries{ .key = "target_range", .name = "Target Range", .unit = "m" },
+				MetricSeries{ .key = "target_velocity", .name = "Target Velocity", .unit = "m/s" },
+				MetricSeries{
+					.key = "signal_to_noise", .name = "Signal-to-Noise Ratio", .unit = "dB" },
+				MetricSeries{ .key = "pulse_width",
+					.name = "Pulse Width",
+					.unit = "us",
+					.values = { params.pw_us } },
+				MetricSeries{ .key = "pulse_repetition_interval",
+					.name = "Pulse Repetition Interval",
+					.unit = "us",
+					.values = { params.pri_us } } },
+			.presentation = Presentation{ .order = 30 } };
+	}
+
+	void log_radar_state(const RadarState &state, double time_s, MetricTable &table)
+	{
+		table.time_axis.values.push_back(time_s);
+		table.metrics[0].values.push_back(state.target_range_m);
+		table.metrics[1].values.push_back(state.target_vel_mps);
+		table.metrics[2].values.push_back(state.signal_to_noise_db);
 	}
 
 } // namespace apogee

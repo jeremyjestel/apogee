@@ -10,7 +10,7 @@ namespace apogee
 		inline constexpr double speed_of_light_mps = 299'792'458.0;
 		inline constexpr double boltzmann_constant_j_per_k = 1.380649e-23;
 		inline constexpr double reference_noise_temperature_k = 290.0;
-		inline constexpr double earth_mean_radius_m = 6'371'000.0;
+		inline constexpr double earth_radius_m = 6'371'000.0;
 		inline constexpr std::complex<double> j(0.0, 1.0);
 		inline constexpr double meters_per_kilometer = 1'000.0;
 		inline constexpr double hertz_per_gigahertz = 1'000'000'000.0;

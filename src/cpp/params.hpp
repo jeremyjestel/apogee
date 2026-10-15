@@ -8,6 +8,7 @@
 
 #include "core/constants.hpp"
 #include "core/kinematic_state.hpp"
+#include "math/coords.hpp"
 
 namespace apogee
 {
@@ -105,7 +106,7 @@ namespace apogee
 				throw std::invalid_argument("Satellite orbit direction must be +1 or -1.");
 			}
 
-			const double radius_m = constants::earth_mean_radius_m + orbital_altitude_m;
+			const double radius_m = constants::earth_radius_m + orbital_altitude_m;
 			const double speed_mps = std::sqrt(constants::earth_mu_m3_s2 / radius_m);
 			const double acceleration_mps2 = constants::earth_mu_m3_s2 / (radius_m * radius_m);
 			const double inclination_rad = inclination_deg * constants::pi / 180.0;
@@ -166,20 +167,12 @@ namespace apogee
 				throw std::invalid_argument("Ground latitude must be between -90 and 90 degrees.");
 			}
 
-			const double latitude_rad = latitude_deg * constants::pi / 180.0;
-			const double longitude_rad = longitude_deg * constants::pi / 180.0;
-			const double radius_m = constants::earth_mean_radius_m + altitude_m;
-			if (radius_m <= 0.0)
-			{
-				throw std::invalid_argument("Ground radius must be positive.");
-			}
-
-			const double x = radius_m * std::cos(latitude_rad) * std::cos(longitude_rad);
-			const double y = radius_m * std::cos(latitude_rad) * std::sin(longitude_rad);
-			const double z = radius_m * std::sin(latitude_rad);
+			const Vec3 position = lla2eci(latitude_deg, longitude_deg, altitude_m, 0.0);
+			const double x = position.x();
+			const double y = position.y();
 			const double omega = constants::earth_rotation_rate_rad_s;
 
-			return KinematicStateECI{ Vec3{ x, y, z },
+			return KinematicStateECI{ position,
 				Vec3{ -omega * y, omega * x, 0.0 },
 				Vec3{ -omega * omega * x, -omega * omega * y, 0.0 } };
 		}
@@ -213,18 +206,13 @@ namespace apogee
 				throw std::invalid_argument("Initial pursuit speed must be non-negative.");
 			}
 
-			const double latitude_rad = latitude_deg * constants::pi / 180.0;
-			const double longitude_rad = longitude_deg * constants::pi / 180.0;
-			const double radius_m = constants::earth_mean_radius_m + altitude_m;
+			const double radius_m = constants::earth_radius_m + altitude_m;
 			if (radius_m <= 0.0)
 			{
 				throw std::invalid_argument("Initial pursuit radius must be positive.");
 			}
 
-			return KinematicStateECI{ Vec3{
-									   radius_m * std::cos(latitude_rad) * std::cos(longitude_rad),
-									   radius_m * std::cos(latitude_rad) * std::sin(longitude_rad),
-									   radius_m * std::sin(latitude_rad) },
+			return KinematicStateECI{ lla2eci(latitude_deg, longitude_deg, altitude_m, 0.0),
 				Vec3::Zero(),
 				Vec3::Zero() };
 		}

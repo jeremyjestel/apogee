@@ -131,49 +131,36 @@ namespace apogee
 			return specs;
 		}
 
-		// Resolve a dotted UI path through the shared parameter visitor.
-		double get_parameter(ScenarioParams &params, const std::string &path)
+		// Resolve a path once for both reading and writing the stored scalar.
+		double &find_parameter(ScenarioParams &params, const std::string &path)
 		{
-			double value = 0.0;
-			bool found = false;
+			double *value = nullptr;
 
 			visit_parameters(params,
 				[&](const ParameterSpec &spec, double &parameter_value)
 				{
 					if (spec.path == path)
 					{
-						value = parameter_value;
-						found = true;
+						value = &parameter_value;
 					}
 				});
 
-			if (!found)
+			if (value == nullptr)
 			{
 				throw std::invalid_argument("Unknown parameter path: " + path);
 			}
 
-			return value;
+			return *value;
 		}
 
-		// Update a dotted UI path through the same traversal used for metadata.
+		double get_parameter(ScenarioParams &params, const std::string &path)
+		{
+			return find_parameter(params, path);
+		}
+
 		void set_parameter(ScenarioParams &params, const std::string &path, double value)
 		{
-			bool found = false;
-
-			visit_parameters(params,
-				[&](const ParameterSpec &spec, double &parameter_value)
-				{
-					if (spec.path == path)
-					{
-						parameter_value = value;
-						found = true;
-					}
-				});
-
-			if (!found)
-			{
-				throw std::invalid_argument("Unknown parameter path: " + path);
-			}
+			find_parameter(params, path) = value;
 		}
 
 		// Return the actual vector element so Python edits the stored definition.
@@ -202,7 +189,8 @@ namespace apogee
 		constants_module.attr("boltzmann_constant_j_per_k") = constants::boltzmann_constant_j_per_k;
 		constants_module.attr("reference_noise_temperature_k") =
 			constants::reference_noise_temperature_k;
-		constants_module.attr("earth_mean_radius_m") = constants::earth_mean_radius_m;
+		constants_module.attr("earth_radius_m") = constants::earth_radius_m;
+		constants_module.attr("earth_mean_radius_m") = constants::earth_radius_m;
 		constants_module.attr("earth_mu_m3_s2") = constants::earth_mu_m3_s2;
 		constants_module.attr("earth_rotation_rate_rad_s") = constants::earth_rotation_rate_rad_s;
 		constants_module.attr("meters_per_kilometer") = constants::meters_per_kilometer;
