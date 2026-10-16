@@ -5,6 +5,6 @@
 namespace apogee
 {
 	// Advances one kinematic state by a single explicit-Euler time step.
-	void advance_orbit(KinematicStateECI &state, double dt_s);
+	Vec3 gravity(Vec3 pos_m, double mass);
 
 } // namespace apogee

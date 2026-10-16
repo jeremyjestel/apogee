@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <unordered_map>
 #include <vector>
 
 #include "core/entity.hpp"
@@ -8,29 +9,28 @@
 
 namespace apogee
 {
-	struct EntityLoggingHandles
+	// Creates the entity histories once, then records their current state each step.
+	class Logger
 	{
-		std::size_t position_series = 0;
-		std::size_t velocity_series = 0;
-		std::size_t acceleration_series = 0;
-		std::size_t speed_series = 0;
+	  public:
+		Logger(const std::vector<Entity> &entities, Result &result);
+
+		// Log every registered entity at this time, even if the list is reordered.
+		void log(const std::vector<Entity> &entities, double time_s);
+
+	  private:
+		struct EntitySeries
+		{
+			std::size_t position = 0;
+			std::size_t velocity = 0;
+			std::size_t acceleration = 0;
+			std::size_t speed = 0;
+		};
+
+		Result &result_;
+		std::size_t simulation_time_axis_;
+		std::unordered_map<int, EntitySeries> entity_series_;
 	};
-
-	struct LoggingLayout
-	{
-		std::size_t simulation_time_axis = 0;
-		std::vector<EntityLoggingHandles> entities;
-	};
-
-	// Create result series and return stable handles used by each logging step.
-	LoggingLayout initialize_entity_state_logging(
-		const std::vector<Entity> &entities, Result &result);
-
-	// Appends one timestamp and one kinematic sample for every entity.
-	void log_entity_states(const std::vector<Entity> &entities,
-		const LoggingLayout &layout,
-		double time_s,
-		Result &result);
 
 	MetricTable initialize_radar_state_logging(int entity_id, const RadarParams &params);
 	void log_radar_state(const RadarState &state, double time_s, MetricTable &table);

@@ -6,6 +6,7 @@
 
 #include "run_sim.hpp"
 #include "math/coords.hpp"
+#include "logging/logging.hpp"
 #include "scenarios/default_scenario.hpp"
 #include "motion/models/ground_motion.hpp"
 #include "motion/models/motion_system.hpp"
@@ -139,6 +140,47 @@ namespace
 		check(run_sim(params).axes.front().values.empty(), "Zero-duration simulation contract changed.");
 	}
 
+	void test_entity_logger()
+	{
+		std::vector<Entity> entities{
+			Entity{ .id = 41, .key = "first", .display_name = "First", .type = "missile",
+				.team = "blue", .kinematics = KinematicStateECI{
+					Vec3{ 1.0, 2.0, 3.0 }, Vec3{ 3.0, 4.0, 0.0 }, Vec3{ 1.0, 0.0, 0.0 } } },
+			Entity{ .id = 7, .key = "second", .display_name = "Second", .type = "satellite",
+				.team = "red", .kinematics = KinematicStateECI{
+					Vec3{ 10.0, 20.0, 30.0 }, Vec3{ 0.0, 0.0, 5.0 }, Vec3::Zero() } }
+		};
+		Result result;
+		Logger logger(entities, result);
+		check(result.entities.size() == 2 && result.vectors.size() == 6 &&
+				result.scalars.size() == 2 && result.axes.front().values.empty(),
+			"Logger must create empty histories before the first step.");
+		check(result.entities.front().id == 41 && result.entities.front().key == "first" &&
+				result.entities.front().display_name == "First" &&
+				result.entities.front().type == "missile" && result.entities.front().team == "blue",
+			"Logger must preserve entity descriptors.");
+		logger.log(entities, 0.0);
+
+		entities[0].kinematics = KinematicStateECI{
+			Vec3{ 4.0, 5.0, 6.0 }, Vec3{ 0.0, 0.0, 12.0 }, Vec3{ 0.0, 1.0, 0.0 } };
+		entities[1].kinematics.pos_m = Vec3{ 40.0, 50.0, 60.0 };
+		const std::vector<Entity> reordered{ entities[1], entities[0] };
+		logger.log(reordered, 0.5);
+
+		check(result.axes.front().values == std::vector<double>{ 0.0, 0.5 },
+			"Logger must append one timestamp for the entire entity list.");
+		check(position(result, 41).values ==
+				std::vector<Vec3>{ Vec3{ 1.0, 2.0, 3.0 }, Vec3{ 4.0, 5.0, 6.0 } } &&
+				position(result, 7).values ==
+				std::vector<Vec3>{ Vec3{ 10.0, 20.0, 30.0 }, Vec3{ 40.0, 50.0, 60.0 } },
+			"Logger must associate current samples with entity IDs when the list is reordered.");
+		check(result.vectors[1].values.back() == entities[0].kinematics.vel_mps &&
+				result.vectors[2].values.back() == entities[0].kinematics.accel_mps2 &&
+				result.scalars[0].values == std::vector<double>{ 5.0, 12.0 } &&
+				result.scalars[1].values == std::vector<double>{ 5.0, 5.0 },
+			"Logger must capture current velocity, acceleration, and speed.");
+	}
+
 	void test_seeded_radar_contract()
 	{
 		auto params = *make_default_scenario().entities.front().radar;
@@ -169,6 +211,7 @@ int main()
 	{
 		test_coordinate_conversions();
 		test_simulation_contract();
+		test_entity_logger();
 		test_seeded_radar_contract();
 		std::cout << "C++ simulation checks passed.\n";
 		return 0;

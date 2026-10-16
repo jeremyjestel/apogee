@@ -6,19 +6,17 @@
 
 namespace apogee
 {
-	LoggingLayout initialize_entity_state_logging(
-		const std::vector<Entity> &entities, Result &result)
+	Logger::Logger(const std::vector<Entity> &entities, Result &result)
+		: result_(result), simulation_time_axis_(result.axes.size())
 	{
-		LoggingLayout layout;
-		layout.simulation_time_axis = result.axes.size();
-		layout.entities.reserve(entities.size());
+		entity_series_.reserve(entities.size());
 
 		result.axes.push_back(Axis{
 			.key = "simulation_time", .name = "Simulation Time", .unit = "s", .kind = "time" });
 
 		for (const Entity &entity : entities)
 		{
-			EntityLoggingHandles handles;
+			EntitySeries series;
 
 			// Preserve entity identity separately so every series can refer to it by ID.
 			result.entities.push_back(EntityDescriptor{ .id = entity.id,
@@ -28,7 +26,7 @@ namespace apogee
 				.team = entity.team });
 
 			// Keep position, velocity, and acceleration consecutive for each entity.
-			handles.position_series = result.vectors.size();
+			series.position = result.vectors.size();
 			result.vectors.push_back(VectorSeries3{ .entity_id = entity.id,
 				.system = "kinematics",
 				.key = "position",
@@ -36,7 +34,7 @@ namespace apogee
 				.unit = "m",
 				.frame = constants::eci_frame,
 				.axis_key = "simulation_time" });
-			handles.velocity_series = result.vectors.size();
+			series.velocity = result.vectors.size();
 			result.vectors.push_back(VectorSeries3{ .entity_id = entity.id,
 				.system = "kinematics",
 				.key = "velocity",
@@ -44,7 +42,7 @@ namespace apogee
 				.unit = "m/s",
 				.frame = constants::eci_frame,
 				.axis_key = "simulation_time" });
-			handles.acceleration_series = result.vectors.size();
+			series.acceleration = result.vectors.size();
 			result.vectors.push_back(VectorSeries3{ .entity_id = entity.id,
 				.system = "kinematics",
 				.key = "acceleration",
@@ -54,7 +52,7 @@ namespace apogee
 				.axis_key = "simulation_time" });
 
 			// Speed is logged separately because it is a scalar derived from velocity.
-			handles.speed_series = result.scalars.size();
+			series.speed = result.scalars.size();
 			result.scalars.push_back(ScalarSeries{ .entity_id = entity.id,
 				.system = "kinematics",
 				.key = "speed",
@@ -62,32 +60,26 @@ namespace apogee
 				.unit = "m/s",
 				.axis_key = "simulation_time" });
 
-			layout.entities.push_back(handles);
+			entity_series_.emplace(entity.id, series);
 		}
-
-		return layout;
 	}
 
-	void log_entity_states(const std::vector<Entity> &entities,
-		const LoggingLayout &layout,
-		double time_s,
-		Result &result)
+	void Logger::log(const std::vector<Entity> &entities, double time_s)
 	{
-		result.axes[layout.simulation_time_axis].values.push_back(time_s);
+		result_.axes[simulation_time_axis_].values.push_back(time_s);
 
-		for (std::size_t index = 0; index < entities.size(); ++index)
+		for (const Entity &entity : entities)
 		{
-			const Entity &entity = entities[index];
-			const EntityLoggingHandles &handles = layout.entities[index];
+			const EntitySeries &series = entity_series_.at(entity.id);
 
-			result.vectors[handles.position_series].values.push_back(entity.kinematics.pos_m);
-			result.vectors[handles.velocity_series].values.push_back(entity.kinematics.vel_mps);
-			result.vectors[handles.acceleration_series].values.push_back(
+			result_.vectors[series.position].values.push_back(entity.kinematics.pos_m);
+			result_.vectors[series.velocity].values.push_back(entity.kinematics.vel_mps);
+			result_.vectors[series.acceleration].values.push_back(
 				entity.kinematics.accel_mps2);
 
 			// Convert the three velocity components into the scalar speed magnitude.
 			const Vec3 &velocity = entity.kinematics.vel_mps;
-			result.scalars[handles.speed_series].values.push_back(velocity.norm());
+			result_.scalars[series.speed].values.push_back(velocity.norm());
 		}
 	}
 
