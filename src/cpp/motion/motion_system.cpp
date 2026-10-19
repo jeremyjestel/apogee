@@ -28,10 +28,7 @@ namespace apogee {
 
                 state.vel_mps += state.accel_mps2 * dt;
                 state.pos_m += state.vel_mps * dt;
-                
             }
         }
-
     }
-
 }

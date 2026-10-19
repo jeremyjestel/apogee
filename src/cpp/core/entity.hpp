@@ -16,9 +16,8 @@ namespace apogee
 		std::string display_name;
 		std::string type;
 		std::string team;
-		KinematicStateECI kinematics;
-		// Optional components let only radar-equipped entities carry radar runtime data.
-		std::optional<RadarModule> radar;
+		KinematicStateECI kinematics;    
+		std::vector<RadarComponent> radars;
 		double radar_signature_dbsm = 0.0;
 	};
 

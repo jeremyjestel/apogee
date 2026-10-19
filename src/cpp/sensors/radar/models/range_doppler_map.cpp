@@ -12,7 +12,7 @@
 namespace apogee
 {
 	// Update radar measurements after both entities have completed their motion step.
-	std::optional<RangePulseProduct> range_doppler_map(RadarModule &radar,
+	std::optional<RangePulseProduct> get_detections(RadarModule &radar,
 		const KinematicStateECI &radar_kinematics,
 		const KinematicStateECI &target_kinematics,
 		double target_rcs_dbsm)
@@ -113,6 +113,9 @@ namespace apogee
 		//Add Clutter (small rcs and doppler targets with a distribution across ragne and doppler)
 		//convolve the flipped conjugate to matched filter, or is this fft?
 		// fft across pulses for doppler
+		//CFAR
+		//DBscan/kmeans
+		
 
 		return std::nullopt;
 	}
