@@ -20,7 +20,7 @@ namespace apogee
 		inline constexpr double earth_rotation_rate_rad_s = 7.2921150e-5;
 		inline constexpr char eci_frame[] = "eci";
 		inline constexpr double omega_earth_radps = 7.2921159e-5;
-
+    	inline constexpr Complex j{0.0, 1.0};
 		inline const Vec3 omega_earth{
 			0.0,
 			0.0,

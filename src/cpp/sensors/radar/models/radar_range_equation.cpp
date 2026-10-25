@@ -13,9 +13,7 @@ namespace apogee
 		const double wavelength_m = constants::speed_of_light_mps / radar.frequency_hz;
 
 		// Apply the monostatic radar range equation using linear power values.
-		const double received_power_w =
-			(radar.power_w * radar.tx_gain_lin * radar.rx_gain_lin * std::pow(wavelength_m, 2) *
-				std::pow(10.0, target_rcs_dbsm / 10.0)) /
+		const double received_power_w =	(radar.power_w * radar.tx_gain_lin * radar.rx_gain_lin * std::pow(wavelength_m, 2) * std::pow(10.0, target_rcs_dbsm / 10.0)) /
 			(std::pow(4.0 * std::numbers::pi, 3) * std::pow(range_m, 4) * radar.system_loss_lin);
 
 		// Thermal noise includes the reference temperature and receiver noise figure.
