@@ -16,6 +16,8 @@ namespace apogee
 {
 	Result run_sim(const ScenarioParams &params)
 	{
+		int seed = 42; // might actually create a world struct or class for seeds, generators, timing
+		std::mt19937 rng{seed};
 		const double dt_s = params.simulation.dt_s;
 		const double duration_s = params.simulation.duration_s;
 
@@ -32,17 +34,13 @@ namespace apogee
 		Result result;
 		Logger logger(entities, result);
 
-		std::optional<GridSeries2D> range_doppler_history;
-		MetricTable radar_state_history =
-			initialize_radar_state_logging(radar_entity.id, radar_entity.radar->p);
-
 		// Log the current state, advance motion, then update radar once per timestep.
 		for (std::size_t step = 0; static_cast<double>(step) * dt_s < duration_s; ++step)
 		{
 			const double sim_time_s = static_cast<double>(step) * dt_s;
 
 
-			sense(entities);
+			sense(entities, rng);
 			estimate(entities);
 			guidance_commands(entities);
 			controls_update(entities);
@@ -50,19 +48,12 @@ namespace apogee
 			motion_step(entities, dt_s);
 
 		}
-
-		if (range_doppler_history)
-		{
-			result.grid_series.push_back(std::move(*range_doppler_history));
-		}
-		result.metric_tables.push_back(std::move(radar_state_history));
-
-		// Run non-timestep analysis after the scenario history is complete.
-		add_snr_range_curve(radar_entity.radar->p,
-			radar_target.radar_signature_dbsm,
-			params.radar_analysis,
-			radar_entity.id,
-			result);
+		// // Run non-timestep analysis after the scenario history is complete.
+		// add_snr_range_curve(radar_entity.radar->p,
+		// 	radar_target.radar_signature_dbsm,
+		// 	params.radar_analysis,
+		// 	radar_entity.id,
+		// 	result);
 
 		return result;
 	}

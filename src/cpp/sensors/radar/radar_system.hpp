@@ -8,6 +8,6 @@
 namespace apogee
 {
 	// Run the radar processing chain for one radar-target pair.
-	std::optional<RangePulseProduct> update_radar(Entity &radar, const Entity &target);
+	std::optional<RangePulseProduct> update_radar(Entity &radar, const Entity &target, std::mt19937& rng);
 
 } // namespace apogee

@@ -7,7 +7,7 @@
 
 namespace apogee {
 
-    inline void sense(std::vector<Entity> &entities, double dt){
+    inline void sense(std::vector<Entity> &entities, double dt, std::mt19937& rng){
 
             // Loop each sensor type applicable for this entity
             // Question is whether to do a list of the applicable sensors looped through, or check if all types exist

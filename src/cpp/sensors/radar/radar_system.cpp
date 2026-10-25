@@ -6,7 +6,7 @@
 
 namespace apogee
 {
-	void radar_system(std::vector<Entity> &entities &target)
+	void radar_system(std::vector<Entity> &entities &target, std::mt19937& rng)
 	{
         for (auto& entity : entities){
 			for (auto& radar : entity.radars){
