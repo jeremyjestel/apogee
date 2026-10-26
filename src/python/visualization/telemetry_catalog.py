@@ -11,6 +11,7 @@ TIME_AXIS_KINDS = {"time", "sequence"}
 TIME_UNIT_TO_SECONDS = {"s": 1.0, "ms": 1e-3, "us": 1e-6, "ns": 1e-9}
 SCALAR_SOURCE = "scalar"
 VECTOR_SOURCE = "vector"
+TEXT_SOURCE = "text"
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,6 +50,12 @@ def _values(series, source_type):
             [[value.x, value.y, value.z] for value in series.values],
             dtype=np.float64,
         ).reshape((-1, 3))
+    elif source_type == TEXT_SOURCE:
+        values = np.array(series.values, dtype=object, copy=True)
+        if values.ndim != 1 or any(
+            value is not None and not isinstance(value, str) for value in values
+        ):
+            raise ValueError(f"Telemetry {series.system}/{series.key} must contain text")
     else:
         values = np.array(series.values, dtype=np.float64, copy=True)
         if values.ndim != 1:
@@ -87,8 +94,9 @@ def build_telemetry_catalog(result):
     for collection_name, source_type in (
         ("vectors", VECTOR_SOURCE),
         ("scalars", SCALAR_SOURCE),
+        ("texts", TEXT_SOURCE),
     ):
-        for series in tuple(getattr(result, collection_name)):
+        for series in tuple(getattr(result, collection_name, ())):
             if series.axis_key not in axes:
                 raise ValueError(
                     f"Telemetry {series.system}/{series.key} requires a timeline axis"

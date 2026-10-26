@@ -1,6 +1,6 @@
 import rerun.blueprint as rrb
 
-from .telemetry_catalog import as_telemetry_catalog
+from .telemetry_catalog import TEXT_SOURCE, as_telemetry_catalog
 
 
 def _view_label(view):
@@ -8,7 +8,8 @@ def _view_label(view):
 
 
 def _view_from_spec(view):
-    return rrb.TimeSeriesView(
+    view_type = rrb.TextLogView if view.source_type == TEXT_SOURCE else rrb.TimeSeriesView
+    return view_type(
         origin=view.path,
         contents=[view.path],
         name=_view_label(view),

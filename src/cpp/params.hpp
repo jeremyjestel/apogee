@@ -6,7 +6,8 @@
 #include <string>
 #include <tuple>
 
-#include "core/constants.hpp"
+#include "core/data_fields.hpp"
+#include "math/constants.hpp"
 #include "motion/kinematic_state.hpp"
 #include "math/coords.hpp"
 
@@ -55,8 +56,11 @@ namespace apogee
 		double pw_us = 0.0;
 		double pri_us = 0.0;
 		int pulse_num = 16;
+		double system_temperature_k = 290.0;
+		double integration_gain_db = 0.0;
+		double detection_threshold_db = 10.0;
 
-		// These derived values are calculated once in the fresh runtime RadarModule.
+		// These derived values are calculated once for each fresh runtime radar.
 		double frequency_ghz = 0.0;
 		double wavelength_m = 0.0;
 		double power_w = 0.0;
@@ -85,7 +89,53 @@ namespace apogee
 				parameter("pulse_width_us", &RadarParams::pw_us, "Pulse width", "us"),
 				parameter("pri_us", &RadarParams::pri_us, "Pulse repetition interval", "us") };
 		}
+
+		// Runtime data includes both independent inputs and finalized calculation values.
+		static constexpr auto data_fields()
+		{
+			return std::tuple_cat(apogee::data_fields(fields()),
+				std::tuple{ data_field("pulse_num", &RadarParams::pulse_num, "Pulse count"),
+					data_field("system_temperature_k", &RadarParams::system_temperature_k, "System temperature", "K"),
+					data_field("integration_gain_db", &RadarParams::integration_gain_db, "Integration gain", "dB"),
+					data_field("detection_threshold_db", &RadarParams::detection_threshold_db, "Detection threshold", "dB"),
+					data_field("frequency_ghz", &RadarParams::frequency_ghz, "Frequency", "GHz"),
+					data_field("wavelength_m", &RadarParams::wavelength_m, "Wavelength", "m"),
+					data_field("power_w", &RadarParams::power_w, "Transmit power", "W"),
+					data_field("tx_gain_lin", &RadarParams::tx_gain_lin, "Transmit gain"),
+					data_field("rx_gain_lin", &RadarParams::rx_gain_lin, "Receive gain"),
+					data_field("noise_figure_lin", &RadarParams::noise_figure_lin, "Noise figure"),
+					data_field("system_loss_lin", &RadarParams::system_loss_lin, "System loss"),
+					data_field("sampling_rate_hz", &RadarParams::sampling_rate_hz, "Sampling rate", "Hz"),
+					data_field("pw_s", &RadarParams::pw_s, "Pulse width", "s"),
+					data_field("pri_s", &RadarParams::pri_s, "Pulse repetition interval", "s"),
+					data_field("mdr_m", &RadarParams::mdr_m, "Minimum detectable range", "m"),
+					data_field("mur_m", &RadarParams::mur_m, "Maximum unambiguous range", "m"),
+					data_field("wavenumber", &RadarParams::wavenumber, "Wavenumber", "rad/m") });
+		}
 	};
+
+	// Convert editable units and decibel quantities into runtime-ready values once.
+	inline RadarParams finalize_radar_params(RadarParams p)
+	{
+		// Convert frequency, power, gain, noise, and loss into calculation units.
+		p.frequency_ghz = p.frequency_hz / constants::hertz_per_gigahertz;
+		p.wavelength_m = constants::speed_of_light_mps / p.frequency_hz;
+		p.power_w = std::pow(10.0, p.power_dbw / 10.0);
+		p.tx_gain_lin = std::pow(10.0, p.tx_gain_db / 10.0);
+		p.rx_gain_lin = std::pow(10.0, p.rx_gain_db / 10.0);
+		p.noise_figure_lin = std::pow(10.0, p.noise_figure_db / 10.0);
+		p.system_loss_lin = std::pow(10.0, p.system_loss_db / 10.0);
+
+		// Derive sample timing and range limits from bandwidth and pulse timing.
+		p.sampling_rate_hz = p.bandwidth_hz * constants::radar_sampling_rate_multiplier;
+		p.pw_s = p.pw_us / constants::microseconds_per_second;
+		p.pri_s = p.pri_us / constants::microseconds_per_second;
+		p.mdr_m = constants::speed_of_light_mps * p.pw_s / 2.0;
+		p.mur_m = constants::speed_of_light_mps * p.pri_s / 2.0;
+		p.wavenumber = 2 * constants::pi / p.wavelength_m;
+
+		return p;
+	}
 
 	struct SatelliteParams
 	{

@@ -5,9 +5,7 @@
 #include <cstddef>
 #include <stdexcept>
 
-#include "motion/models/ground_motion.hpp"
-#include "motion/models/motion_system.hpp"
-#include "motion/models/orbital_motion.hpp"
+#include "motion/motion_system.hpp"
 
 namespace apogee
 {
@@ -25,10 +23,15 @@ namespace apogee
 							  : definition.initial_pursuit
 								  ? definition.initial_pursuit->initial_kinematics()
 								  : definition.initial_kinematics,
+				.motion_type = definition.motion_type,
+				.mass = definition.mass,
+				.drag_coeff = definition.drag_coeff,
+				.area_m2 = definition.area_m2,
 				.radar_signature_dbsm = definition.radar_signature_dbsm };
 			if (definition.radar)
 			{
-				entity.radar.emplace(*definition.radar);
+				entity.radars.push_back(
+					RadarComponent{ .params = finalize_radar_params(*definition.radar) });
 			}
 			return entity;
 		}
@@ -88,20 +91,6 @@ namespace apogee
 
 	void advance_entities(std::vector<Entity> &entities, double dt_s)
 	{
-		for (Entity &entity : entities)
-		{
-			if (entity.type == "radar")
-			{
-				advance_ground(entity.kinematics, dt_s);
-			}
-			else if (entity.type == "satellite")
-			{
-				advance_orbit(entity.kinematics, dt_s);
-			}
-			else
-			{
-				advance_kinematics(entity.kinematics, dt_s);
-			}
-		}
+		motion_step(entities, dt_s);
 	}
 }

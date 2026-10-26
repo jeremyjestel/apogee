@@ -1,6 +1,6 @@
 #include "scenarios/default_scenario.hpp"
 
-#include "core/constants.hpp"
+#include "math/constants.hpp"
 #include "params.hpp"
 
 namespace apogee
@@ -15,6 +15,7 @@ namespace apogee
 				.display_name = "Blue Radar",
 				.type = "radar",
 				.team = "blue",
+				.motion_type = MotionType::EarthFixed,
 				.ground =
 					GroundParams{.latitude_deg = 0.0, .longitude_deg = 180.0, .altitude_m = 0.0},
 				.radar = RadarParams{.frequency_hz = 5e9,

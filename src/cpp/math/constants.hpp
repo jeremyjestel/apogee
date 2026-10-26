@@ -1,5 +1,5 @@
 #pragma once
-#include <complex>
+#include "math/types.hpp"
 
 namespace apogee
 {
@@ -11,7 +11,6 @@ namespace apogee
 		inline constexpr double boltzmann_constant_j_per_k = 1.380649e-23;
 		inline constexpr double reference_noise_temperature_k = 290.0;
 		inline constexpr double earth_radius_m = 6'371'000.0;
-		inline constexpr std::complex<double> j(0.0, 1.0);
 		inline constexpr double meters_per_kilometer = 1'000.0;
 		inline constexpr double hertz_per_gigahertz = 1'000'000'000.0;
 		inline constexpr double microseconds_per_second = 1'000'000.0;
@@ -20,7 +19,7 @@ namespace apogee
 		inline constexpr double earth_rotation_rate_rad_s = 7.2921150e-5;
 		inline constexpr char eci_frame[] = "eci";
 		inline constexpr double omega_earth_radps = 7.2921159e-5;
-    	inline constexpr Complex j{0.0, 1.0};
+		inline constexpr Complex j{0.0, 1.0};
 		inline const Vec3 omega_earth{
 			0.0,
 			0.0,

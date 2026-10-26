@@ -6,13 +6,13 @@
 #include <random>
 #include <utility>
 
-#include "core/constants.hpp"
+#include "math/constants.hpp"
 #include "sensors/radar/models/radar_range_equation.hpp"
 
 namespace apogee
 {
 	// Update radar measurements after both entities have completed their motion step.
-	std::optional<RangePulseProduct> get_detections(RadarModule &radar,
+	std::optional<RangePulseProduct> range_doppler_map(RadarModule &radar,
 		const KinematicStateECI &radar_kinematics,
 		const KinematicStateECI &target_kinematics,
 		double target_rcs_dbsm)

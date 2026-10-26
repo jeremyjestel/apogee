@@ -3,7 +3,7 @@
 #include <cmath>
 #include <numbers>
 
-#include "core/constants.hpp"
+#include "math/constants.hpp"
 
 namespace apogee
 {

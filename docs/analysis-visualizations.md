@@ -3,6 +3,49 @@
 Calculations publish semantic data to C++ `Result`. They never construct Qt,
 Matplotlib, or Rerun objects.
 
+## Recording entity and component state
+
+`Logger::log(entities, time_s)` records the fields described by each type's
+`data_fields()` tuple. Descriptions live beside the data definitions, following
+the existing parameter-metadata pattern. C++20 cannot discover struct members
+automatically: describe a new member there once; supported shapes require no
+logger, binding, or renderer changes.
+
+The logger traverses nested data, optional components, and component lists.
+It records all described fields, including runtime radar parameters and derived
+values. It reads state without running models or changing their calculations.
+
+| Field shape | Result collection | Python presentation |
+| --- | --- | --- |
+| Number, boolean, enum | `scalars` | Analysis curve and Rerun time series |
+| 3D vector | `vectors` | XYZ analysis curves and Rerun time series |
+| Text | `texts` | Analysis table and Rerun text log |
+| Matrix or numeric list | `arrays` | Raw array inspector with time controls |
+
+All histories share `simulation_time`. Booleans and enums retain their numeric
+values. Missing numeric/vector samples are NaN; missing text/array samples are
+`None`. An empty string or array remains a present sample. Arrays retain their
+own dimensions and row-major complex values at every timestep, so empty and
+resized matrices are valid. The inspector offers real, imaginary, and magnitude
+views without modifying the saved data or assuming radar axes.
+
+Entity IDs identify histories independently of list order. Named components use
+their unique, stable names within the owning collection; unnamed components use
+their list positions. Renaming a component starts a new history. Target lists
+record entity IDs instead of recursively duplicating the targets' state.
+Components/entities appearing later receive missing samples for earlier times;
+their histories also retain gaps when they disappear.
+
+The logger emits `(entity_id, system, key)` identities. A radar field might use
+`(1, "radars", "name:tracking/state/target_range_m")`; component names are escaped
+to avoid path collisions. Python analysis adds a `history/` prefix to generated
+product keys. Rerun's 3D scene continues to use the explicit ECI kinematics roles
+`position`, `velocity`, and `acceleration`; other vectors become telemetry.
+
+Keep `logger.log` before motion advances, as in the main simulation loop, so the
+recorded state and subsystem outputs share the same timestamp. Sample times
+must be finite and strictly increasing.
+
 ## Choose one of three shapes
 
 | Result type | Use it for | Presentation |

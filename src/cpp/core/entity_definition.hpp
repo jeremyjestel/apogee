@@ -18,6 +18,10 @@ namespace apogee
 		std::string type;
 		std::string team;
 		KinematicStateECI initial_kinematics;
+		MotionType motion_type = MotionType::FreeFlight;
+		double mass = 1.0;
+		double drag_coeff = 0.0;
+		double area_m2 = 0.0;
 		std::optional<GroundParams> ground;
 		// An engaged optional derives circular-orbit kinematics from altitude.
 		std::optional<SatelliteParams> satellite;

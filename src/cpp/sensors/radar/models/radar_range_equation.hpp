@@ -6,7 +6,7 @@ namespace apogee
 {
 	struct RadarEquationResult
 	{
-		double received_power_w = 0.0;
+		double signal_power_w = 0.0;
 		double noise_power_w = 0.0;
 		double snr_linear = 0.0;
 		double snr_db = 0.0;

@@ -1,5 +1,8 @@
 
-#include "math/types.hpp"
+#include "math/dsp/convolve.hpp"
+
+#include <algorithm>
+#include <cmath>
 
 namespace apogee{
     CVecX convolve(CVecX a, CVecX b, std::string type){

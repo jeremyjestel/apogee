@@ -1,7 +1,9 @@
-#include "radar_processing.hpp"
+#include "sensors/radar/models/radar_processing.hpp"
 
 namespace apogee{
-    void process_returns(KinematicState radar_pos, Entity radar, std::vector<Entity> targets){
+    void process_returns(const KinematicStateECI &radar_pos,
+        RadarComponent &radar,
+        const std::vector<Entity> &targets){
 
         // doppler weighted FFT across pulses
 

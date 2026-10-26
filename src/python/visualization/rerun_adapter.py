@@ -14,6 +14,7 @@ from .rerun_paths import (
 )
 from .telemetry_catalog import (
     SCALAR_SOURCE,
+    TEXT_SOURCE,
     TIME_UNIT_TO_SECONDS,
     VECTOR_SOURCE,
     build_telemetry_catalog,
@@ -51,6 +52,12 @@ def _time_column(axis, values):
     raise ValueError(f"Axis {axis.key} is not a timeline: {axis.kind}")
 
 
+def _finite_runs(values):
+    valid = np.isfinite(values).all(axis=1)
+    boundaries = np.flatnonzero(np.diff(np.r_[False, valid, False]))
+    return [slice(start, stop) for start, stop in boundaries.reshape((-1, 2))]
+
+
 def _positions_on_axis(
     position_axis,
     position_coordinates,
@@ -71,9 +78,14 @@ def _positions_on_axis(
         return positions
     if target.size and (target[0] < source[0] or target[-1] > source[-1]):
         raise ValueError("Scenario vector timeline extends beyond position history")
-    return np.column_stack(
-        [np.interp(target, source, positions[:, component]) for component in range(3)]
-    )
+    origins = np.full((len(target), 3), np.nan)
+    for run in _finite_runs(positions):
+        selected = (target >= source[run.start]) & (target <= source[run.stop - 1])
+        origins[selected] = np.column_stack(
+            [np.interp(target[selected], source[run], positions[run, component])
+             for component in range(3)]
+        )
+    return origins
 
 
 def _log_series_metadata(recording, view, **extra):
@@ -143,6 +155,7 @@ def _log_scenario(recording, catalog):
             continue
 
         position_axis = position_view.axis
+        valid_positions = np.isfinite(positions).all(axis=1)
         recording.log(
             root,
             rr.Points3D.from_fields(
@@ -157,12 +170,15 @@ def _log_scenario(recording, catalog):
         recording.send_columns(
             root,
             indexes=[_time_column(position_axis, position_view.coordinates)],
-            columns=rr.Points3D.columns(positions=positions),
+            # Empty batches clear disappeared entities instead of retaining their last point.
+            columns=rr.Points3D.columns(positions=positions[valid_positions]).partition(
+                valid_positions.astype(np.int64)
+            ),
         )
         recording.log(
             world_trajectory(entity),
             rr.LineStrips3D(
-                [positions],
+                [positions[run] for run in _finite_runs(positions)],
                 colors=[color],
                 radii=rr.Radius.ui_points(2.0),
             ),
@@ -192,6 +208,7 @@ def _log_scenario(recording, catalog):
                 series_view.coordinates,
             )
             path = world_vector(entity, series)
+            valid_vectors = np.isfinite(origins).all(axis=1) & np.isfinite(vectors).all(axis=1)
             recording.log(
                 path,
                 rr.Arrows3D.from_fields(colors=[VECTOR_COLORS[quantity]]),
@@ -200,7 +217,9 @@ def _log_scenario(recording, catalog):
             recording.send_columns(
                 path,
                 indexes=[_time_column(series_view.axis, series_view.coordinates)],
-                columns=rr.Arrows3D.columns(origins=origins, vectors=vectors),
+                columns=rr.Arrows3D.columns(
+                    origins=origins[valid_vectors], vectors=vectors[valid_vectors]
+                ).partition(valid_vectors.astype(np.int64)),
             )
 
 
@@ -232,9 +251,25 @@ def _log_vector(recording, view):
     _log_series_metadata(recording, view, frame=view.item.frame)
 
 
+def _log_text(recording, view):
+    _log_series_metadata(recording, view)
+    for coordinate, value in zip(view.coordinates, view.values):
+        if view.axis.kind == "sequence":
+            recording.set_time(view.axis.key, sequence=int(coordinate))
+        else:
+            recording.set_time(
+                view.axis.key, duration=float(coordinate) * TIME_UNIT_TO_SECONDS[view.axis.unit]
+            )
+        recording.log(
+            view.path, rr.Clear(recursive=False) if value is None else rr.TextLog(value)
+        )
+    recording.disable_timeline(view.axis.key)
+
+
 VIEW_LOGGERS = {
     SCALAR_SOURCE: _log_scalar,
     VECTOR_SOURCE: _log_vector,
+    TEXT_SOURCE: _log_text,
 }
 
 

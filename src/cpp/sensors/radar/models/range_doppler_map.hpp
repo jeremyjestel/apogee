@@ -5,7 +5,7 @@
 #include <optional>
 
 #include "motion/kinematic_state.hpp"
-#include "sensors/radar/radar_state.hpp"
+#include "sensors/radar/models/radar_state.hpp"
 #include "core/result.hpp"
 
 namespace apogee

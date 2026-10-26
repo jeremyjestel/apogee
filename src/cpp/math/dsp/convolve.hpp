@@ -1,6 +1,7 @@
 #pragma once
+#include <string>
 #include "math/types.hpp"
 
 namespace apogee{
-    void full_convolve(CVecX a, CVecX b)
+    CVecX convolve(CVecX a, CVecX b, std::string type);
 }

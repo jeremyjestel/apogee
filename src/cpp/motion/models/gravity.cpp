@@ -1,5 +1,5 @@
 #include "motion/models/gravity.hpp"
-#include "core/constants.hpp"
+#include "math/constants.hpp"
 
 namespace apogee
 {

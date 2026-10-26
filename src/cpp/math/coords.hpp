@@ -3,7 +3,7 @@
 #include <cmath>
 #include <stdexcept>
 
-#include "core/constants.hpp"
+#include "math/constants.hpp"
 #include "motion/kinematic_state.hpp"
 #include "math/types.hpp"
 

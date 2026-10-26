@@ -9,7 +9,7 @@
 #include "logging/logging.hpp"
 #include "scenarios/default_scenario.hpp"
 #include "motion/models/ground_motion.hpp"
-#include "motion/models/motion_system.hpp"
+#include "motion/motion_system.hpp"
 #include "sensors/radar/models/range_doppler_map.hpp"
 
 namespace
@@ -119,9 +119,10 @@ namespace
 		check(table.metrics[3].values == std::vector<double>{ params.entities.front().radar->pw_us } &&
 				table.metrics[4].values == std::vector<double>{ params.entities.front().radar->pri_us },
 			"Constant radar metrics must remain singletons.");
-		auto target = KinematicStateECI{ position(result, 3).values.front(),
-			result.vectors.at(7).values.front(), Vec3::Zero() };
-		advance_kinematics(target, params.simulation.dt_s);
+		std::vector<Entity> targets{ Entity{ .kinematics = KinematicStateECI{
+			position(result, 3).values.front(), result.vectors.at(7).values.front(), Vec3::Zero() } } };
+		motion_step(targets, params.simulation.dt_s);
+		const KinematicStateECI &target = targets.front().kinematics;
 		check(table.metrics.front().values.front() == (ground.pos_m - target.pos_m).norm(),
 			"Radar measurements must retain their original post-motion update order.");
 

@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
 )
 
 from .renderers import RENDERERS
+from .catalog import DESCRIPTION_KEY
 
 
 ANALYSIS_STYLE = """
@@ -88,6 +89,12 @@ class AnalysisWorkspace(QSplitter):
                 owner = QTreeWidgetItem([product.owner_name])
                 self.navigator.addTopLevelItem(owner)
                 owners[product.entity_id] = owner
+
+            if product.system == "entity" and product.key == DESCRIPTION_KEY:
+                leaf = QTreeWidgetItem(owner, [product.name])
+                leaf.setData(0, Qt.ItemDataRole.UserRole, index)
+                first_leaf = first_leaf or leaf
+                continue
 
             system_key = product.entity_id, product.system
             system = systems.get(system_key)

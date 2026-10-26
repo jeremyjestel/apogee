@@ -6,17 +6,27 @@ find_package(Eigen3 CONFIG REQUIRED)
 # Keep simulation logic reusable without depending on Python bindings.
 add_library(apogee_core STATIC
     src/cpp/analysis/radar_range.cpp
+    src/cpp/controls/control_system.cpp
+    src/cpp/estimation/estimation_system.cpp
+    src/cpp/guidance/guidance_system.cpp
+    src/cpp/motion/models/drag.cpp
+    src/cpp/motion/models/gravity.cpp
     src/cpp/motion/models/ground_motion.cpp
-    src/cpp/motion/models/motion_system.cpp
-    src/cpp/motion/models/orbital_motion.cpp
+    src/cpp/motion/models/thrust.cpp
+    src/cpp/motion/motion_system.cpp
     src/cpp/logging/logging.cpp
+    src/cpp/math/dsp/convolve.cpp
+    src/cpp/math/geometry/boresight_angle.cpp
     src/cpp/math/geometry/los_occluded.cpp
     src/cpp/run_sim.cpp
     src/cpp/scenarios/default_scenario.cpp
     src/cpp/simulation/scenario_runtime.cpp
     src/cpp/sensors/radar/models/radar_range_equation.cpp
+    src/cpp/sensors/radar/models/radar_returns.cpp
+    src/cpp/sensors/radar/models/radar_processing.cpp
     src/cpp/sensors/radar/radar_system.cpp
     src/cpp/sensors/radar/models/range_doppler_map.cpp
+    src/cpp/sensors/sensor_system.cpp
 )
 
 target_include_directories(apogee_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src/cpp")
@@ -40,6 +50,15 @@ endif()
 
 include(CTest)
 if(BUILD_TESTING)
+    # Exercise logging independently while simulation subsystems are unfinished.
+    add_executable(apogee_logging_tests
+        tests/cpp/test_logging.cpp
+        src/cpp/logging/logging.cpp)
+    target_include_directories(apogee_logging_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src/cpp")
+    target_link_libraries(apogee_logging_tests PRIVATE Eigen3::Eigen)
+    target_compile_features(apogee_logging_tests PRIVATE cxx_std_20)
+    add_test(NAME apogee_logging_tests COMMAND apogee_logging_tests)
+
     add_executable(apogee_core_tests tests/cpp/test_simulation.cpp)
     target_link_libraries(apogee_core_tests PRIVATE apogee_core)
     add_test(NAME apogee_core_tests COMMAND apogee_core_tests)

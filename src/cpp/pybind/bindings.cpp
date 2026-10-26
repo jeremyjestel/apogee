@@ -1,4 +1,5 @@
 #include <pybind11/pybind11.h>
+#include <pybind11/complex.h>
 #include <pybind11/stl.h>
 
 #include <algorithm>
@@ -7,7 +8,7 @@
 #include <tuple>
 #include <vector>
 
-#include "core/constants.hpp"
+#include "math/constants.hpp"
 #include "core/entity_definition.hpp"
 #include "motion/kinematic_state.hpp"
 #include "core/result.hpp"
@@ -360,6 +361,34 @@ namespace apogee
 			.def_readwrite("values", &VectorSeries3::values)
 			.def_readwrite("presentation", &VectorSeries3::presentation);
 
+		py::class_<TextSeries>(m, "TextSeries")
+			.def(py::init<>())
+			.def_readwrite("entity_id", &TextSeries::entity_id)
+			.def_readwrite("system", &TextSeries::system)
+			.def_readwrite("key", &TextSeries::key)
+			.def_readwrite("name", &TextSeries::name)
+			.def_readwrite("unit", &TextSeries::unit)
+			.def_readwrite("axis_key", &TextSeries::axis_key)
+			.def_readwrite("values", &TextSeries::values)
+			.def_readwrite("presentation", &TextSeries::presentation);
+
+		py::class_<ArraySample>(m, "ArraySample")
+			.def(py::init<>())
+			.def_readwrite("rows", &ArraySample::rows)
+			.def_readwrite("columns", &ArraySample::columns)
+			.def_readwrite("values", &ArraySample::values);
+
+		py::class_<ArraySeries>(m, "ArraySeries")
+			.def(py::init<>())
+			.def_readwrite("entity_id", &ArraySeries::entity_id)
+			.def_readwrite("system", &ArraySeries::system)
+			.def_readwrite("key", &ArraySeries::key)
+			.def_readwrite("name", &ArraySeries::name)
+			.def_readwrite("unit", &ArraySeries::unit)
+			.def_readwrite("axis_key", &ArraySeries::axis_key)
+			.def_readwrite("values", &ArraySeries::values)
+			.def_readwrite("presentation", &ArraySeries::presentation);
+
 		py::class_<GridSeries2D>(m, "GridSeries2D")
 			.def(py::init<>())
 			.def_readwrite("entity_id", &GridSeries2D::entity_id)
@@ -386,7 +415,9 @@ namespace apogee
 			.def_readwrite("curves", &Result::curves)
 			.def_readwrite("metric_tables", &Result::metric_tables)
 			.def_readwrite("vectors", &Result::vectors)
-			.def_readwrite("grid_series", &Result::grid_series);
+			.def_readwrite("grid_series", &Result::grid_series)
+			.def_readwrite("texts", &Result::texts)
+			.def_readwrite("arrays", &Result::arrays);
 
 		// Expose the simulation as the single C++ execution entry point.
 		m.def("run_sim",

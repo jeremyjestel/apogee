@@ -1,4 +1,3 @@
-#pragma once
 #include "math/geometry/boresight_angle.hpp"
 #include <cmath>
 #include "math/constants.hpp"

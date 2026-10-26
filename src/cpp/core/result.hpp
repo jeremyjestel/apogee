@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -98,6 +99,40 @@ namespace apogee
 		Presentation presentation;
 	};
 
+	// Text and variable-size arrays share the simulation axis with numeric series.
+	// An absent sample is distinct from an empty string or an empty array.
+	struct TextSeries
+	{
+		int entity_id = 0;
+		std::string system;
+		std::string key;
+		std::string name;
+		std::string unit;
+		std::string axis_key;
+		std::vector<std::optional<std::string>> values;
+		Presentation presentation;
+	};
+
+	// Each sample owns its shape and row-major values, retaining complex data.
+	struct ArraySample
+	{
+		std::size_t rows = 0;
+		std::size_t columns = 0;
+		std::vector<Complex> values;
+	};
+
+	struct ArraySeries
+	{
+		int entity_id = 0;
+		std::string system;
+		std::string key;
+		std::string name;
+		std::string unit;
+		std::string axis_key;
+		std::vector<std::optional<ArraySample>> values;
+		Presentation presentation;
+	};
+
 	// A time-indexed row-major scalar field. Each frame contains rows * columns
 	// values, with x_axis addressing columns and y_axis addressing rows. A static
 	// grid is represented by one frame rather than a separate result type.
@@ -130,6 +165,8 @@ namespace apogee
 		std::vector<MetricTable> metric_tables;
 		std::vector<VectorSeries3> vectors;
 		std::vector<GridSeries2D> grid_series;
+		std::vector<TextSeries> texts;
+		std::vector<ArraySeries> arrays;
 	};
 
 } // namespace apogee

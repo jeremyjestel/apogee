@@ -1,4 +1,4 @@
-"""Qt/Matplotlib renderers for the three supported analysis shapes."""
+"""Qt/Matplotlib renderers for completed analysis and logged state histories."""
 
 import numpy as np
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg, NavigationToolbar2QT
@@ -6,6 +6,7 @@ from matplotlib.figure import Figure
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QComboBox,
     QDoubleSpinBox,
     QHBoxLayout,
     QHeaderView,
@@ -17,7 +18,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from .catalog import CURVE, GRID_SERIES, METRIC_TABLE, AnalysisProduct
+from .catalog import ARRAY_SERIES, CURVE, GRID_SERIES, METRIC_TABLE, RANGE_PULSE_MAP, AnalysisProduct
 
 
 TEAM_COLORS = {"blue": "#286eff", "red": "#ff3737"}
@@ -189,7 +190,12 @@ class MetricTableWidget(QWidget):
         for row, metric in enumerate(self.product.metrics):
             if len(metric.values):
                 value = metric.values[0 if len(metric.values) == 1 else index]
-                text = f"{value:,.6g}"
+                if value is None:
+                    text = "—"
+                elif isinstance(value, str):
+                    text = value
+                else:
+                    text = f"{value:,.6g}" if np.isfinite(value) else "—"
             else:
                 text = "—"
             cell = QTableWidgetItem(text)
@@ -199,8 +205,73 @@ class MetricTableWidget(QWidget):
             self.table.setItem(row, 1, cell)
 
 
+class ArraySeriesWidget(FigureWidget):
+    """Inspect raw array snapshots even when dimensions change between samples."""
+
+    COMPONENTS = {"Real": np.real, "Imaginary": np.imag, "Magnitude": np.abs}
+    X_LABEL = "Column index"
+    Y_LABEL = "Row index"
+    DEFAULT_COMPONENT = "Real"
+
+    def __init__(self, product):
+        super().__init__()
+        self.product = product
+        self.plot = self.figure.add_subplot()
+        self.colorbar = None
+        self.component = QComboBox()
+        self.component.addItems(self.COMPONENTS)
+        self.component.setCurrentText(self.DEFAULT_COMPONENT)
+        self.layout().insertWidget(1, self.component)
+        self.time_control = TimeControl(product.axes[0], self._show_frame)
+        self.layout().insertWidget(1, self.time_control)
+        self.component.currentTextChanged.connect(self._change_component)
+        self.time_control._set_index(0)
+
+    def _change_component(self, _component):
+        self.time_control._set_index(self.time_control.slider.value())
+
+    def _show_frame(self, index, time_value):
+        if self.colorbar is not None:
+            self.colorbar.remove()
+            self.colorbar = None
+        self.plot.clear()
+        sample = self.product.samples[index]
+        if sample is None or not sample.size:
+            text = "No sample" if sample is None else f"Empty array ({sample.shape[0]} × {sample.shape[1]})"
+            self.plot.text(0.5, 0.5, text, ha="center", va="center", transform=self.plot.transAxes)
+            self.plot.set_axis_off()
+        else:
+            self.plot.set_axis_on()
+            values = self.COMPONENTS[self.component.currentText()](sample)
+            image = self.plot.imshow(
+                np.ma.masked_invalid(values), origin="lower", aspect="auto",
+                interpolation="nearest", cmap="turbo",
+            )
+            self.colorbar = self.figure.colorbar(image, ax=self.plot)
+            if self.product.value_unit:
+                self.colorbar.set_label(self.product.value_unit)
+            self.plot.set_xlabel(self.X_LABEL)
+            self.plot.set_ylabel(self.Y_LABEL)
+        unit = self.product.axes[0].unit
+        self.plot.set_title(
+            f"{self.product.name} — {time_value:g}{f' {unit}' if unit else ''}"
+            f" ({self.component.currentText()})"
+        )
+        self.canvas.draw_idle()
+
+
+class RangePulseMapWidget(ArraySeriesWidget):
+    """Browse each radar's recorded range rows and pulse columns in time."""
+
+    X_LABEL = "Pulse index"
+    Y_LABEL = "Range sample index"
+    DEFAULT_COMPONENT = "Magnitude"
+
+
 RENDERERS = {
     CURVE: render_curve,
     GRID_SERIES: GridSeriesWidget,
     METRIC_TABLE: MetricTableWidget,
+    ARRAY_SERIES: ArraySeriesWidget,
+    RANGE_PULSE_MAP: RangePulseMapWidget,
 }
