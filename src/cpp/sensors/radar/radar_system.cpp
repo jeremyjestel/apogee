@@ -28,7 +28,7 @@ namespace apogee
 						(target.kinematics.pos_m - entity.kinematics.pos_m).squaredNorm() == 0.0) {
 						continue;
 					}
-					if (!has_line_of_sight(entity.kinematics.pos_m,target.kinematics.pos_m,constants::earth_radius_m)) {
+					if (!has_line_of_sight(entity.kinematics.pos_m,target.kinematics.pos_m,		constants::earth_radius_m)) {
 						continue;
 					}
 					if (target.motion_type == MotionType::FreeFlight){

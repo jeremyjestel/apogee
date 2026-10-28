@@ -1,4 +1,3 @@
-
 #include "math/dsp/convolve.hpp"
 
 #include <algorithm>
@@ -11,11 +10,11 @@ namespace apogee{
         int convolved_length = a_length + b_length - 1;
         CVecX convolved = CVecX::Zero(convolved_length);
 
-        for (int n = 0; n < convolved_length; n++){
-            for (int k = 0; k < a_length;k++){
-                int idx = n - k;
+        for (int k = 0; k < convolved_length; k++){
+            for (int n = 0; n < a_length; n++){
+                int idx = k - n;
                 if (idx >= 0 && idx < b_length){
-                    convolved[n] += a[k] * b[n-k];
+                    convolved[k] += a[n] * b[k-n];
                 }
             }
         }

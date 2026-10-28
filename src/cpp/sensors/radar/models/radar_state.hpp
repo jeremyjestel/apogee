@@ -18,7 +18,10 @@ namespace apogee
 		double target_range_m = 0.0;
 		double target_vel_mps = 0.0;
 		double signal_to_noise_db = 0.0;
+		CVecX wf;
 		CMatX range_pulse_map;
+		CMatX range_doppler_map;
+		CMatX range_velocity_map;
 
 		static constexpr auto data_fields()
 		{
@@ -27,7 +30,10 @@ namespace apogee
 				data_field("target_range_m", &RadarState::target_range_m, "Target range", "m"),
 				data_field("target_vel_mps", &RadarState::target_vel_mps, "Target velocity", "m/s"),
 				data_field("signal_to_noise_db", &RadarState::signal_to_noise_db, "Signal-to-noise ratio", "dB"),
-				data_field("range_pulse_map", &RadarState::range_pulse_map, "Range-pulse map") };
+				data_field("wf", &RadarState::wf, "Waveform"),
+				data_field("range_pulse_map", &RadarState::range_pulse_map, "Range-pulse map"),
+				data_field("range_doppler_map", &RadarState::range_doppler_map, "Range-Doppler map"),
+				data_field("range_velocity_map", &RadarState::range_velocity_map, "Range-velocity map") };
 		}
 	};
 

@@ -27,7 +27,7 @@ namespace apogee{
 
         int pulse_n_samples = params.sampling_rate_hz * params.pw_s;
         VecX pulse_t_s = VecX::LinSpaced(pulse_n_samples, 0, params.pw_s);
-        CVecX pulse_signal = (constants::j * params.frequency_hz * pulse_t_s).array().exp().matrix();
+        radar.state.wf = (constants::j * params.frequency_hz * pulse_t_s).array().exp().matrix();
         RadarEquationResult rre_result;
 
         for (auto& target : targets) {
@@ -44,7 +44,7 @@ namespace apogee{
         CMatX noise_mat = std::sqrt(rre_result.noise_power_w) * crandn(rp_mat.rows(), rp_mat.cols(), rng);
         CMatX rp_noisy_mat = rp_delta_mat + noise_mat;
         for (int pulse_idx = 0; pulse_idx < params.pulse_num;pulse_idx++){
-            rp_mat.col(pulse_idx) = convolve(rp_delta_mat.col(pulse_idx), pulse_signal, "same");
+            rp_mat.col(pulse_idx) = convolve(rp_delta_mat.col(pulse_idx), radar.state.wf, "same");
         }
         radar.state.range_pulse_map = rp_mat;
         

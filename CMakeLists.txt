@@ -16,6 +16,7 @@ add_library(apogee_core STATIC
     src/cpp/motion/motion_system.cpp
     src/cpp/logging/logging.cpp
     src/cpp/math/dsp/convolve.cpp
+    src/cpp/math/dsp/window.cpp
     src/cpp/math/geometry/boresight_angle.cpp
     src/cpp/math/geometry/los_occluded.cpp
     src/cpp/run_sim.cpp
@@ -50,6 +51,14 @@ endif()
 
 include(CTest)
 if(BUILD_TESTING)
+    add_executable(apogee_window_tests
+        tests/cpp/test_window.cpp
+        src/cpp/math/dsp/window.cpp)
+    target_include_directories(apogee_window_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src/cpp")
+    target_link_libraries(apogee_window_tests PRIVATE Eigen3::Eigen)
+    target_compile_features(apogee_window_tests PRIVATE cxx_std_20)
+    add_test(NAME apogee_window_tests COMMAND apogee_window_tests)
+
     # Exercise logging independently while simulation subsystems are unfinished.
     add_executable(apogee_logging_tests
         tests/cpp/test_logging.cpp
