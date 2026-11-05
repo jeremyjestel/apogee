@@ -4,6 +4,7 @@ import socket
 import apogee
 import numpy as np
 import rerun as rr
+from rerun.experimental import ViewerClient
 
 from .rerun_blueprint import build_blueprint
 from .rerun_paths import (
@@ -288,22 +289,31 @@ def _log_result(result, recording, blueprint=None):
     recording.flush()
 
 
-def view_rerun(result):
-    """Open a detached viewer and send one completed scene and telemetry result."""
+def view_rerun(result, *, on_spawn=None):
+    """Open an owned viewer and send one completed scene and telemetry result."""
 
     with socket.socket() as port_socket:
         port_socket.bind(("127.0.0.1", 0))
         port = port_socket.getsockname()[1]
 
     recording = rr.RecordingStream(APPLICATION_ID)
+    viewer = None
     try:
         viewer_path = Path(rr.__file__).resolve().parent.parent / "rerun_cli" / "rerun.exe"
-        rr.spawn(
+        viewer = ViewerClient.spawn(
             port=port,
             hide_welcome_screen=True,
+            detach_process=False,
             executable_path=str(viewer_path) if viewer_path.is_file() else None,
-            recording=recording,
         )
+        if on_spawn is not None:
+            on_spawn(viewer)
+        rr.connect_grpc(viewer.url, recording=recording)
         _log_result(result, recording)
+        return viewer
+    except Exception:
+        if viewer is not None:
+            viewer.close()
+        raise
     finally:
         recording.disconnect()

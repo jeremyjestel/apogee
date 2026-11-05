@@ -9,6 +9,7 @@ add_library(apogee_core STATIC
     src/cpp/controls/control_system.cpp
     src/cpp/estimation/estimation_system.cpp
     src/cpp/guidance/guidance_system.cpp
+    src/cpp/guidance/models/prop_nav.cpp
     src/cpp/motion/models/drag.cpp
     src/cpp/motion/models/gravity.cpp
     src/cpp/motion/models/ground_motion.cpp
@@ -16,6 +17,7 @@ add_library(apogee_core STATIC
     src/cpp/motion/motion_system.cpp
     src/cpp/logging/logging.cpp
     src/cpp/math/dsp/convolve.cpp
+    src/cpp/math/dsp/correlate.cpp
     src/cpp/math/dsp/window.cpp
     src/cpp/math/geometry/boresight_angle.cpp
     src/cpp/math/geometry/los_occluded.cpp
@@ -75,6 +77,10 @@ if(BUILD_TESTING)
     add_executable(apogee_coords_tests tests/cpp/test_coords.cpp)
     target_link_libraries(apogee_coords_tests PRIVATE apogee_core)
     add_test(NAME apogee_coords_tests COMMAND apogee_coords_tests)
+
+    add_executable(apogee_radar_processing_tests tests/cpp/test_radar_processing.cpp)
+    target_link_libraries(apogee_radar_processing_tests PRIVATE apogee_core)
+    add_test(NAME apogee_radar_processing_tests COMMAND apogee_radar_processing_tests)
 endif()
 
 if(MSVC)

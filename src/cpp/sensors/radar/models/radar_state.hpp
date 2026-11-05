@@ -19,6 +19,7 @@ namespace apogee
 		double target_vel_mps = 0.0;
 		double signal_to_noise_db = 0.0;
 		CVecX wf;
+		// Rows are receive range samples; columns are pulses or shifted Doppler bins.
 		CMatX range_pulse_map;
 		CMatX range_doppler_map;
 		CMatX range_velocity_map;

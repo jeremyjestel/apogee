@@ -10,8 +10,9 @@ import pytest
 import apogee
 from analysis.catalog import (
     CURVE,
-    GRID_SERIES,
     METRIC_TABLE,
+    RANGE_DOPPLER_MAP,
+    RANGE_PULSE_MAP,
     build_analysis_catalog,
 )
 
@@ -67,29 +68,29 @@ def _run_script(script):
     assert completed.returncode == 0, completed.stdout + completed.stderr
 
 
-def test_analysis_catalog_normalizes_the_three_supported_shapes():
-    catalog = build_analysis_catalog(_radar_result())
+def test_analysis_catalog_exposes_logged_radar_processing_products():
+    result = _radar_result()
+    catalog = build_analysis_catalog(result)
+    timeline = next(axis.values for axis in result.axes if axis.key == "simulation_time")
     radar = next(entity for entity in catalog.entities if entity.key == "blue_radar")
     products = [product for product in catalog.products if product.entity == radar]
 
-    assert [(product.kind, product.key) for product in products] == [
-        (CURVE, "snr"),
-        (GRID_SERIES, "range_doppler_noisy"),
-        (METRIC_TABLE, "state"),
-    ]
-    curve, grid, table = products
-    assert curve.values.ndim == 1
-    assert grid.values.shape == (2, 27, 16)
-    assert [axis.key for axis in grid.axes] == [
-        "simulation_time",
-        "pulse_index",
-        "range_km",
-    ]
-    metrics = {metric.key: metric for metric in table.metrics}
-    assert len(metrics["target_range"].values) == 2
-    assert len(metrics["pulse_width"].values) == 1
-    assert not grid.values.flags.writeable
-    assert all(not axis.values.flags.writeable for axis in grid.axes)
+    maps = {product.kind: product for product in products
+            if product.kind in {RANGE_PULSE_MAP, RANGE_DOPPLER_MAP}}
+    assert set(maps) == {RANGE_PULSE_MAP, RANGE_DOPPLER_MAP}
+    for kind, product in maps.items():
+        assert product.key == f"history/index:0/state/{kind}"
+        assert [axis.key for axis in product.axes] == ["simulation_time"]
+        assert product.axes[0].values.tolist() == pytest.approx(timeline)
+        assert len(product.samples) == len(timeline)
+        columns = 16 if kind == RANGE_PULSE_MAP else 64
+        assert all(sample.shape == (27, columns) for sample in product.samples)
+        assert all(np.isfinite(sample).all() for sample in product.samples)
+        assert all(not sample.flags.writeable for sample in product.samples)
+        assert not product.axes[0].values.flags.writeable
+    assert any(product.kind == CURVE for product in products)
+    assert any(product.kind == METRIC_TABLE and product.key == "description"
+               for product in products)
 
 
 def test_analysis_order_and_group_are_generic_presentation_metadata():

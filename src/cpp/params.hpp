@@ -2,9 +2,11 @@
 
 #include <array>
 #include <cmath>
+#include <span>
 #include <stdexcept>
 #include <string>
 #include <tuple>
+#include <vector>
 
 #include "core/data_fields.hpp"
 #include "math/constants.hpp"
@@ -20,14 +22,16 @@ namespace apogee
 		Value Owner::*member;
 		const char *name;
 		const char *unit;
+		std::span<const char *const> choices{};
 	};
 
 	// This helper keeps each field declaration short while preserving its member type.
 	template <typename Owner, typename Value>
 	constexpr ParameterField<Owner, Value> parameter(
-		const char *key, Value Owner::*member, const char *name, const char *unit)
+		const char *key, Value Owner::*member, const char *name, const char *unit,
+		std::span<const char *const> choices = {})
 	{
-		return { key, member, name, unit };
+		return { key, member, name, unit, choices };
 	}
 
 	struct SimulationParams
@@ -56,6 +60,9 @@ namespace apogee
 		double pw_us = 0.0;
 		double pri_us = 0.0;
 		int pulse_num = 16;
+		int doppler_zero_pad_factor = 4;
+		std::string range_window = "rectangular";
+		std::string doppler_window = "rectangular";
 		double system_temperature_k = 290.0;
 		double integration_gain_db = 0.0;
 		double detection_threshold_db = 10.0;
@@ -76,6 +83,10 @@ namespace apogee
 		double wavenumber = 0.0;
 
 		// Only the independent inputs belong in the parameter window.
+		inline static constexpr std::array window_names{ "rectangular", "boxcar", "hann",
+			"hamming", "bartlett", "blackman", "blackmanharris", "blackman-harris",
+			"blackman_harris", "flattop", "kaiser", "gaussian", "tukey" };
+
 		static constexpr auto fields()
 		{
 			return std::tuple{ parameter(
@@ -87,15 +98,19 @@ namespace apogee
 				parameter("bandwidth_hz", &RadarParams::bandwidth_hz, "Bandwidth", "Hz"),
 				parameter("system_loss_db", &RadarParams::system_loss_db, "System loss", "dB"),
 				parameter("pulse_width_us", &RadarParams::pw_us, "Pulse width", "us"),
-				parameter("pri_us", &RadarParams::pri_us, "Pulse repetition interval", "us") };
+				parameter("pri_us", &RadarParams::pri_us, "Pulse repetition interval", "us"),
+				parameter("pulse_num", &RadarParams::pulse_num, "Pulse count", ""),
+				parameter("doppler_zero_pad_factor", &RadarParams::doppler_zero_pad_factor,
+					"Doppler FFT padding factor", ""),
+				parameter("range_window", &RadarParams::range_window, "Range window", "", window_names),
+				parameter("doppler_window", &RadarParams::doppler_window, "Doppler window", "", window_names) };
 		}
 
 		// Runtime data includes both independent inputs and finalized calculation values.
 		static constexpr auto data_fields()
 		{
 			return std::tuple_cat(apogee::data_fields(fields()),
-				std::tuple{ data_field("pulse_num", &RadarParams::pulse_num, "Pulse count"),
-					data_field("system_temperature_k", &RadarParams::system_temperature_k, "System temperature", "K"),
+				std::tuple{ data_field("system_temperature_k", &RadarParams::system_temperature_k, "System temperature", "K"),
 					data_field("integration_gain_db", &RadarParams::integration_gain_db, "Integration gain", "dB"),
 					data_field("detection_threshold_db", &RadarParams::detection_threshold_db, "Detection threshold", "dB"),
 					data_field("frequency_ghz", &RadarParams::frequency_ghz, "Frequency", "GHz"),
@@ -301,6 +316,8 @@ namespace apogee
 		std::string path;
 		std::string name;
 		std::string unit;
+		std::string value_type = "float";
+		std::vector<std::string> choices;
 	};
 
 	// A member pointer and component index locate one scalar in an ECI state vector.

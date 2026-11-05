@@ -43,10 +43,10 @@ namespace apogee
 
 				//Do I split these here or have a separate radar processing function, seems like depth not needed
 				generate_returns(entity.kinematics, radar, radar.targets, rng);
-				// process_returns(entity.kinematics, radar, radar.targets);
+				process_returns(radar);
 				// detect_targets(radar); // gating? does this happen else where? mnight want association to be its own subsystem or subset of tracking
 				// provide_measurements(radar); // entity.measurements so tracker subsystem can access that for sensor fusion, probably will do separate trackers for each sensor but eventually a combiner
-
+				// state.last_update_s = sim_time;
 
 
 

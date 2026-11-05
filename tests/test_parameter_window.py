@@ -73,7 +73,8 @@ def test_completed_run_embeds_analysis_and_opens_rerun(monkeypatch):
         "build_analysis_catalog",
         lambda value: catalog,
     )
-    monkeypatch.setattr(parameter_window, "view_rerun", viewed.append)
+    monkeypatch.setattr(parameter_window, "view_rerun",
+                        lambda result, **kwargs: viewed.append(result))
 
     window._run_worker(object())
     application.processEvents()
@@ -102,10 +103,10 @@ def test_scenario_save_load_preserves_text_and_builds_parameters(
 
     window.save_button.click()
 
-    assert json.loads(scenario_path.read_text(encoding="utf-8")) == {
-        "version": 1,
-        "parameters": saved_values,
-    }
+    saved = json.loads(scenario_path.read_text(encoding="utf-8"))
+    assert saved["version"] == 2
+    assert saved["parameters"] == saved_values
+    assert {entity["type"] for entity in saved["entities"]} == set(parameter_window.ENTITY_TYPES)
     assert _entry_values(window) == saved_values
 
     for entry in window.entries.values():
@@ -120,8 +121,10 @@ def test_scenario_save_load_preserves_text_and_builds_parameters(
     assert window.status.text() == "Loaded scenario: scenario.json"
     assert window._run_thread is None
     params = create_params_from_text(_entry_values(window))
-    for path, value in saved_values.items():
-        assert parameter_window.apogee.get_parameter(params, path) == float(value)
+    for spec in PARAMETER_SPECS:
+        value = saved_values[spec.path]
+        expected = value if spec.value_type == "string" else float(value)
+        assert parameter_window.apogee.get_parameter(params, spec.path) == expected
     window.entries[paths[0]].setText("42")
     assert window.status.text() == "Parameters modified"
     window.load_button.click()

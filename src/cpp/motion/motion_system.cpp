@@ -25,7 +25,8 @@ namespace apogee {
 
                 accel_sum += gravity(state.pos_m, entity.mass);
                 accel_sum += drag(state.vel_mps, entity.mass, entity.drag_coeff, entity.area_m2); //Should return 0 if velocity 0, needs an atmospheric part
-                accel_sum += thrust(entity.mass); // Will ahve to decide if this calls controls api or controls updates motio
+                accel_sum += thrust(state.pos_m, entity.mass);
+                accel_sum += entity.controls.accel_actual;
 
                 state.accel_mps2 = accel_sum;
 

@@ -73,6 +73,9 @@ def test_parameter_schema_defaults_and_text_round_trip():
         "blue_radar.radar.frequency_hz",
         "blue_radar.radar.pulse_width_us",
         "blue_radar.radar.pri_us",
+        "blue_radar.radar.pulse_num",
+        "blue_radar.radar.range_window",
+        "blue_radar.radar.doppler_window",
         "blue_radar.radar_signature_dbsm",
         "blue_satellite.satellite.orbital_altitude_m",
         "blue_satellite.satellite.orbit_direction",
@@ -110,11 +113,20 @@ def test_parameter_schema_defaults_and_text_round_trip():
         path.startswith("blue_interceptor.initial_kinematics") for path in paths
     )
 
-    edited_text = {path: str(value + 0.125) for path, value in defaults.items()}
+    edited_values = {
+        path: "hamming" if isinstance(value, str)
+        else value + (1 if isinstance(value, int) else 0.125)
+        for path, value in defaults.items()
+    }
+    edited_text = {path: str(value) for path, value in edited_values.items()}
     edited = _parameter_values(create_params_from_text(edited_text))
     for path, original in defaults.items():
-        assert float(displayed[path]) == pytest.approx(original)
-        assert edited[path] == pytest.approx(original + 0.125)
+        if isinstance(original, str):
+            assert displayed[path] == original
+            assert edited[path] == edited_values[path]
+        else:
+            assert float(displayed[path]) == pytest.approx(original)
+            assert edited[path] == pytest.approx(edited_values[path])
 
 
 def test_edited_run_contains_complete_kinematic_histories():
@@ -136,7 +148,7 @@ def test_edited_run_contains_complete_kinematic_histories():
 
     axes = {axis.key: axis for axis in result.axes}
     simulation_time = axes["simulation_time"].values
-    assert simulation_time == pytest.approx([0.0, 0.25])
+    assert simulation_time == pytest.approx([0.0, 0.25, 0.5])
 
     radar = next(entity for entity in result.entities if entity.key == "blue_radar")
     radar_position = next(
@@ -295,16 +307,27 @@ def test_satellite_angles_orient_the_circular_orbit():
     assert position[2] != pytest.approx(0.0)
 
 
-def test_radar_analysis_uses_radar_and_missile_parameters():
+def test_runtime_radar_parameters_are_finalized_and_logged():
     params = apogee.Params()
-    apogee.set_parameter(params, "simulation.duration_s", 0.0)
-    apogee.set_parameter(params, "radar_analysis.max_range_m", 30.0)
-    apogee.set_parameter(params, "radar_analysis.range_samples", 3.0)
+    apogee.set_parameter(params, "simulation.duration_s", 0.1)
+    apogee.set_parameter(params, "blue_radar.radar.bandwidth_hz", 10_000.0)
+    apogee.set_parameter(params, "blue_radar.radar.pulse_width_us", 100.0)
+    apogee.set_parameter(params, "blue_radar.radar.pri_us", 1_000.0)
 
     baseline = apogee.run_sim(params)
-    baseline_curve = next(curve for curve in baseline.curves if curve.key == "snr")
-    baseline_snr = baseline_curve.values
     radar = next(entity for entity in baseline.entities if entity.key == "blue_radar")
+
+    def logged_parameter(result, key):
+        return next(item.values[0] for item in result.scalars
+                    if item.entity_id == radar.id and item.system == "radars"
+                    and item.key == f"index:0/params/{key}")
+
+    assert logged_parameter(baseline, "sampling_rate_hz") == pytest.approx(30_000.0)
+    assert logged_parameter(baseline, "pw_s") == pytest.approx(100e-6)
+    assert logged_parameter(baseline, "pri_s") == pytest.approx(1_000e-6)
+    assert logged_parameter(baseline, "wavelength_m") == pytest.approx(
+        apogee.constants.speed_of_light_mps / 5e9
+    )
 
     power_path = "blue_radar.radar.power_dbw"
     apogee.set_parameter(
@@ -312,49 +335,33 @@ def test_radar_analysis_uses_radar_and_missile_parameters():
         power_path,
         apogee.get_parameter(params, power_path) + 10.0,
     )
-    powered_snr = next(
-        curve.values
-        for curve in apogee.run_sim(params).curves
-        if curve.key == "snr"
-    )
-
     rcs_path = "red_missile.radar_signature_dbsm"
     apogee.set_parameter(
         params,
         rcs_path,
         apogee.get_parameter(params, rcs_path) + 10.0,
     )
-    larger_target_snr = next(
-        curve.values
-        for curve in apogee.run_sim(params).curves
-        if curve.key == "snr"
-    )
-
     frequency_path = "blue_radar.radar.frequency_hz"
     apogee.set_parameter(
         params,
         frequency_path,
         apogee.get_parameter(params, frequency_path) * 2.0,
     )
-    higher_frequency_snr = next(
-        curve.values
-        for curve in apogee.run_sim(params).curves
-        if curve.key == "snr"
+    edited = apogee.run_sim(params)
+    assert logged_parameter(edited, "power_w") == pytest.approx(
+        10.0 * logged_parameter(baseline, "power_w")
     )
-
-    assert baseline_curve.x_axis.key == "radar_range_km"
-    assert baseline_curve.x_axis.values == pytest.approx([0.01, 0.02, 0.03])
-    assert baseline_curve.entity_id == radar.id
-    assert baseline_curve.value_unit == "dB"
-    assert baseline_snr[0] == pytest.approx(135.5559052454)
-    assert np.subtract(powered_snr, baseline_snr) == pytest.approx([10.0] * 3)
-    assert np.subtract(larger_target_snr, powered_snr) == pytest.approx([10.0] * 3)
-    assert np.subtract(higher_frequency_snr, larger_target_snr) == pytest.approx(
-        [-6.0205999133] * 3
+    assert logged_parameter(edited, "wavelength_m") == pytest.approx(
+        0.5 * logged_parameter(baseline, "wavelength_m")
+    )
+    target = next(entity for entity in edited.entities if entity.key == "red_missile")
+    assert next(item.values[0] for item in edited.scalars
+                if item.entity_id == target.id and item.key == "radar_signature_dbsm") == pytest.approx(
+        apogee.get_parameter(params, rcs_path)
     )
 
 
-def test_noisy_range_doppler_grid_and_radar_metric_table_contract():
+def test_logged_radar_maps_and_state_share_the_simulation_timeline():
     params = apogee.Params()
     apogee.set_parameter(params, "simulation.duration_s", 0.3)
     apogee.set_parameter(params, "blue_radar.radar.bandwidth_hz", 10_000.0)
@@ -367,60 +374,31 @@ def test_noisy_range_doppler_grid_and_radar_metric_table_contract():
 
     result = apogee.run_sim(params)
     radar = next(entity for entity in result.entities if entity.key == "blue_radar")
-    grid = next(
-        grid for grid in result.grid_series if grid.key == "range_doppler_noisy"
-    )
+    timeline = next(axis for axis in result.axes if axis.key == "simulation_time")
+    assert timeline.values == pytest.approx([0.0, 0.1, 0.2])
+    arrays = {item.key: item for item in result.arrays if item.entity_id == radar.id}
+    for key in ("range_pulse_map", "range_doppler_map"):
+        series = arrays[f"index:0/state/{key}"]
+        assert series.system == "radars"
+        assert series.axis_key == timeline.key
+        assert len(series.values) == len(timeline.values)
+        columns = 16 if key == "range_pulse_map" else 64
+        assert all((sample.rows, sample.columns) == (27, columns) for sample in series.values)
+        assert all(len(sample.values) == 27 * columns for sample in series.values)
+        assert all(np.isfinite(sample.values).all() for sample in series.values)
+    waveform = arrays["index:0/state/wf"]
+    assert all((sample.rows, sample.columns) == (3, 1) for sample in waveform.values)
 
-    assert grid.entity_id == radar.id
-    assert grid.system == "radar"
-    assert grid.value_unit == "dB"
-    assert (grid.rows, grid.columns) == (27, 16)
-    assert grid.x_axis.key == "pulse_index"
-    assert grid.y_axis.key == "range_km"
-    assert grid.y_axis.unit == "km"
-    assert grid.x_axis.values == pytest.approx(list(range(grid.columns)))
-    assert grid.time_axis.key == "simulation_time"
-    assert grid.time_axis.unit == "s"
-    assert grid.time_axis.values == pytest.approx([0.0, 0.1, 0.2])
-    assert len(grid.values) == (
-        len(grid.time_axis.values) * grid.rows * grid.columns
-    )
-    assert np.isfinite(grid.values).all()
-
-    minimum_range_km = apogee.constants.speed_of_light_mps * 100e-6 / 2e3
-    detectable_range_km = (
-        apogee.constants.speed_of_light_mps * (1_000e-6 - 100e-6) / 2e3
-    )
-    assert grid.y_axis.values == pytest.approx(
-        [
-            minimum_range_km + index * detectable_range_km / grid.rows
-            for index in range(grid.rows)
-        ]
-    )
-
-    metric_table = next(
-        item
-        for item in result.metric_tables
-        if item.system == "radar" and item.key == "state"
-    )
-    metrics = {metric.key: metric for metric in metric_table.metrics}
-    assert metric_table.entity_id == radar.id
-    assert metric_table.time_axis.key == "simulation_time"
-    assert metric_table.time_axis.values == pytest.approx([0.0, 0.1, 0.2])
-    assert set(metrics) == {
-        "target_range",
-        "target_velocity",
-        "signal_to_noise",
-        "pulse_width",
-        "pulse_repetition_interval",
-    }
-    for key in ("target_range", "target_velocity", "signal_to_noise"):
-        assert len(metrics[key].values) == len(metric_table.time_axis.values)
-        assert np.isfinite(metrics[key].values).all()
-    assert metrics["pulse_width"].values == pytest.approx([100.0])
-    assert metrics["pulse_repetition_interval"].values == pytest.approx(
-        [1_000.0]
-    )
+    scalar_fields = {item.key: item for item in result.scalars
+                     if item.entity_id == radar.id and item.system == "radars"}
+    for key in ("target_range_m", "target_vel_mps", "signal_to_noise_db"):
+        series = scalar_fields[f"index:0/state/{key}"]
+        assert series.axis_key == timeline.key
+        assert len(series.values) == len(timeline.values)
+        assert np.isfinite(series.values).all()
+    assert scalar_fields["index:0/params/pw_us"].values == pytest.approx([100.0] * 3)
+    assert scalar_fields["index:0/params/pri_us"].values == pytest.approx([1_000.0] * 3)
+    assert not result.grid_series
 
 
 def test_telemetry_catalog_contains_only_timeline_series():
@@ -534,7 +512,9 @@ def test_view_rerun_uses_an_available_port_and_no_recording_file(monkeypatch):
     port_socket.__exit__ = Mock(return_value=None)
     port_socket.getsockname.return_value = ("127.0.0.1", 43210)
     recording = Mock()
-    spawn = Mock()
+    viewer = Mock(url="rerun+http://127.0.0.1:43210/proxy")
+    spawn = Mock(return_value=viewer)
+    connect = Mock()
     log_result = Mock()
     monkeypatch.setattr(
         rerun_adapter.socket,
@@ -546,14 +526,19 @@ def test_view_rerun_uses_an_available_port_and_no_recording_file(monkeypatch):
         "RecordingStream",
         Mock(return_value=recording),
     )
-    monkeypatch.setattr(rerun_adapter.rr, "spawn", spawn)
+    monkeypatch.setattr(rerun_adapter.ViewerClient, "spawn", spawn)
+    monkeypatch.setattr(rerun_adapter.rr, "connect_grpc", connect)
     monkeypatch.setattr(rerun_adapter, "_log_result", log_result)
 
     result = object()
-    rerun_adapter.view_rerun(result)
+    on_spawn = Mock()
+    viewer = rerun_adapter.view_rerun(result, on_spawn=on_spawn)
 
     port_socket.bind.assert_called_once_with(("127.0.0.1", 0))
     assert spawn.call_args.kwargs["port"] == 43210
+    assert spawn.call_args.kwargs["detach_process"] is False
+    connect.assert_called_once_with("rerun+http://127.0.0.1:43210/proxy", recording=recording)
+    on_spawn.assert_called_once_with(viewer)
     log_result.assert_called_once_with(result, recording)
     recording.save.assert_not_called()
     recording.disconnect.assert_called_once()

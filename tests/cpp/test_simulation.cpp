@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <iostream>
@@ -5,12 +6,17 @@
 #include <string>
 
 #include "run_sim.hpp"
+#include "controls/control_system.hpp"
+#include "guidance/guidance_system.hpp"
+#include "guidance/models/prop_nav.hpp"
 #include "math/coords.hpp"
 #include "logging/logging.hpp"
 #include "scenarios/default_scenario.hpp"
 #include "motion/models/ground_motion.hpp"
 #include "motion/motion_system.hpp"
-#include "sensors/radar/models/range_doppler_map.hpp"
+#include "sensors/radar/models/radar_processing.hpp"
+#include "sensors/radar/models/radar_returns.hpp"
+#include "simulation/scenario_runtime.hpp"
 
 namespace
 {
@@ -22,6 +28,16 @@ namespace
 		{
 			throw std::runtime_error(message);
 		}
+	}
+
+	template <typename Series>
+	const Series &find(const std::vector<Series> &series, int entity_id,
+		const std::string &system, const std::string &key)
+	{
+		const auto item = std::find_if(series.begin(), series.end(), [&](const Series &value)
+			{ return value.entity_id == entity_id && value.system == system && value.key == key; });
+		check(item != series.end(), "Missing series: " + system + "/" + key);
+		return *item;
 	}
 
 	const VectorSeries3 &position(const Result &result, int entity_id)
@@ -99,12 +115,17 @@ namespace
 		auto params = make_default_scenario();
 		params.simulation.duration_s = 0.2;
 		const Result result = run_sim(params);
-		check(result.entities.size() == 4 && result.vectors.size() == 12 && result.scalars.size() == 4,
-			"Default scenario result layout changed.");
-		check(result.axes.size() == 1 && result.axes.front().values == std::vector<double>{ 0.0, 0.1 },
+		check(result.entities.size() == 4,
+			"Default scenario must retain all four entities.");
+		check(result.axes.size() == 1 && result.axes.front().values == std::vector<double>{ 0.0, 0.1, 0.2 },
 			"Simulation sampling convention changed.");
-		check(result.metric_tables.size() == 1 && result.curves.size() == 1,
-			"Default radar analysis products changed.");
+		const auto &raw = find(result.arrays, 1, "radars", "index:0/state/range_pulse_map");
+		const auto &processed = find(result.arrays, 1, "radars", "index:0/state/range_doppler_map");
+		check(raw.values.size() == 3 && processed.values.size() == 3 &&
+			raw.values[0]->rows == processed.values[0]->rows &&
+			raw.values[0]->columns * 4 == processed.values[0]->columns &&
+			processed.values[0]->columns == 64,
+			"Radar raw and processed complex maps must share the simulation timeline and layout.");
 
 		auto ground = params.entities.front().ground->initial_kinematics();
 		check(position(result, 1).values.front() == ground.pos_m,
@@ -113,20 +134,28 @@ namespace
 		check(position(result, 1).values.at(1) == ground.pos_m,
 			"Ground motion sequence changed.");
 
-		const auto &table = result.metric_tables.front();
-		check(table.time_axis.values == result.axes.front().values && table.metrics.size() == 5,
-			"Radar metric table layout changed.");
-		check(table.metrics[3].values == std::vector<double>{ params.entities.front().radar->pw_us } &&
-				table.metrics[4].values == std::vector<double>{ params.entities.front().radar->pri_us },
-			"Constant radar metrics must remain singletons.");
-		std::vector<Entity> targets{ Entity{ .kinematics = KinematicStateECI{
-			position(result, 3).values.front(), result.vectors.at(7).values.front(), Vec3::Zero() } } };
-		motion_step(targets, params.simulation.dt_s);
-		const KinematicStateECI &target = targets.front().kinematics;
-		check(table.metrics.front().values.front() == (ground.pos_m - target.pos_m).norm(),
-			"Radar measurements must retain their original post-motion update order.");
+		for (int entity_id : { 3, 4 })
+		{
+			const Vec3 command = find(result.vectors, entity_id, "guidance", "accel_command").values.front();
+			const Vec3 actual = find(result.vectors, entity_id, "controls", "accel_actual").values.front();
+			const auto &velocity = find(result.vectors, entity_id, "kinematics", "velocity").values;
+			check(command.norm() > 0.0 &&
+				(actual - (1.0 - std::exp(-1.0)) * command).norm() < 1e-9,
+				"Simulation steps must run guidance and controls for both pursuit entities.");
+			check((velocity[1] - velocity[0] - actual * params.simulation.dt_s).norm() < 1e-9,
+				"Motion must apply the control output during the same simulation step.");
+		}
+
+		check(find(result.scalars, 1, "radars", "index:0/params/pulse_width_us").values ==
+			std::vector<double>(3, params.entities.front().radar->pw_us),
+			"Finalized radar parameters must be logged with the component state.");
 
 		const Result repeated = run_sim(params);
+		check(raw.values[0]->values ==
+			find(repeated.arrays, 1, "radars", raw.key).values[0]->values &&
+			processed.values[0]->values ==
+			find(repeated.arrays, 1, "radars", processed.key).values[0]->values,
+			"Fresh simulations must reproduce seeded radar returns and processing.");
 		for (const auto &series : result.vectors)
 		{
 			for (const auto &other : repeated.vectors)
@@ -138,7 +167,8 @@ namespace
 			}
 		}
 		params.simulation.duration_s = 0.0;
-		check(run_sim(params).axes.front().values.empty(), "Zero-duration simulation contract changed.");
+		check(run_sim(params).axes.front().values == std::vector<double>{ 0.0 },
+			"Zero-duration simulation must retain the initial sample.");
 	}
 
 	void test_entity_logger()
@@ -153,8 +183,14 @@ namespace
 		};
 		Result result;
 		Logger logger(entities, result);
-		check(result.entities.size() == 2 && result.vectors.size() == 6 &&
-				result.scalars.size() == 2 && result.axes.front().values.empty(),
+		auto vector_count = [&](const std::string &system)
+		{
+			return std::count_if(result.vectors.begin(), result.vectors.end(),
+				[&](const auto &series) { return series.system == system; });
+		};
+		check(result.entities.size() == 2 && vector_count("kinematics") == 6 &&
+				vector_count("guidance") == 2 && vector_count("controls") == 2 &&
+				result.axes.front().values.empty(),
 			"Logger must create empty histories before the first step.");
 		check(result.entities.front().id == 41 && result.entities.front().key == "first" &&
 				result.entities.front().display_name == "First" &&
@@ -164,6 +200,8 @@ namespace
 
 		entities[0].kinematics = KinematicStateECI{
 			Vec3{ 4.0, 5.0, 6.0 }, Vec3{ 0.0, 0.0, 12.0 }, Vec3{ 0.0, 1.0, 0.0 } };
+		entities[0].guidance.accel_command = Vec3{ 0.0, 2.0, 3.0 };
+		entities[0].controls.accel_actual = Vec3{ 0.0, 1.0, 1.5 };
 		entities[1].kinematics.pos_m = Vec3{ 40.0, 50.0, 60.0 };
 		const std::vector<Entity> reordered{ entities[1], entities[0] };
 		logger.log(reordered, 0.5);
@@ -175,11 +213,118 @@ namespace
 				position(result, 7).values ==
 				std::vector<Vec3>{ Vec3{ 10.0, 20.0, 30.0 }, Vec3{ 40.0, 50.0, 60.0 } },
 			"Logger must associate current samples with entity IDs when the list is reordered.");
-		check(result.vectors[1].values.back() == entities[0].kinematics.vel_mps &&
-				result.vectors[2].values.back() == entities[0].kinematics.accel_mps2 &&
-				result.scalars[0].values == std::vector<double>{ 5.0, 12.0 } &&
-				result.scalars[1].values == std::vector<double>{ 5.0, 5.0 },
+		check(find(result.vectors, 41, "kinematics", "velocity").values.back() == entities[0].kinematics.vel_mps &&
+				find(result.vectors, 41, "kinematics", "acceleration").values.back() == entities[0].kinematics.accel_mps2 &&
+				find(result.scalars, 41, "kinematics", "speed").values == std::vector<double>{ 5.0, 12.0 } &&
+				find(result.scalars, 7, "kinematics", "speed").values == std::vector<double>{ 5.0, 5.0 },
 			"Logger must capture current velocity, acceleration, and speed.");
+		check(find(result.vectors, 41, "guidance", "accel_command").values.back() ==
+				entities[0].guidance.accel_command &&
+				find(result.vectors, 41, "controls", "accel_actual").values.back() ==
+				entities[0].controls.accel_actual,
+			"Logger must capture guidance commands and control outputs.");
+	}
+
+	void test_guidance_and_controls()
+	{
+		std::vector<Entity> entities(3);
+		entities[0].type = "missile";
+		entities[0].kinematics.vel_mps = Vec3{ 10.0, 0.0, 0.0 };
+		entities[0].guidance.target_index = 1;
+		entities[0].controls.time_constant_s = 0.1;
+		entities[1].type = "satellite";
+		entities[1].kinematics.pos_m = Vec3{ 100.0, 0.0, 0.0 };
+		entities[1].kinematics.vel_mps = Vec3{ 0.0, 2.0, 0.0 };
+		entities[1].guidance.target_index = 0;
+		entities[1].guidance.accel_command = Vec3::Ones();
+		entities[2].type = "interceptor";
+		entities[2].kinematics = entities[0].kinematics;
+		entities[2].guidance.target_index = 1;
+		const Vec3 first_command{ 0.0, 0.6, 0.0 };
+		check((prop_nav(entities[0], entities[1]) - first_command).norm() < 1e-12,
+			"Proportional navigation must use target-relative velocity.");
+		std::mt19937 rng(1234);
+		guidance_commands(entities, rng);
+		check((entities[0].guidance.accel_command - first_command).norm() < 1e-12 &&
+				(entities[2].guidance.accel_command - first_command).norm() < 1e-12 &&
+				entities[1].guidance.accel_command.isZero(),
+			"Only missiles and interceptors must receive guidance commands.");
+
+		controls_update(entities, 0.1);
+		check((entities[0].controls.accel_actual -
+				(1.0 - std::exp(-1.0)) * first_command).norm() < 1e-12,
+			"Controls must apply the configured first-order acceleration lag.");
+		controls_update(entities, 0.1);
+		check((entities[0].controls.accel_actual -
+				(1.0 - std::exp(-2.0)) * first_command).norm() < 1e-12,
+			"Controls must retain actual acceleration between updates.");
+
+		entities[1].kinematics.vel_mps = Vec3{ 0.0, -3.0, 4.0 };
+		guidance_commands(entities, rng);
+		check((entities[0].guidance.accel_command - Vec3{ 0.0, -0.9, 1.2 }).norm() < 1e-12,
+			"Guidance must use the target's current state on every update.");
+		entities[0].controls.time_constant_s = 0.0;
+		controls_update(entities, 0.1);
+		check((entities[0].controls.accel_actual - entities[0].guidance.accel_command).norm() < 1e-12,
+			"A zero control time constant must apply the command immediately.");
+		entities[1].kinematics.pos_m = entities[0].kinematics.pos_m;
+		check(prop_nav(entities[0], entities[1]).isZero(),
+			"Coincident target positions must produce a finite zero command.");
+		entities[0].guidance.target_index.reset();
+		guidance_commands(entities, rng);
+		check(entities[0].guidance.accel_command.isZero(),
+			"Removing a target must clear the previous guidance command.");
+	}
+
+	void test_configured_guidance_targets()
+	{
+		auto params = make_default_scenario();
+		auto entities = instantiate_entities(params);
+		auto target_key = [&](const std::string &key) -> const std::string &
+		{
+			const Entity &entity = require_entity(entities, key);
+			check(entity.guidance.target_index.has_value(), "Missing configured guidance target.");
+			return entities.at(*entity.guidance.target_index).key;
+		};
+		check(target_key("red_missile") == "blue_satellite" &&
+				target_key("blue_interceptor") == "red_missile" &&
+				!require_entity(entities, "blue_radar").guidance.target_index &&
+				!require_entity(entities, "blue_satellite").guidance.target_index,
+			"Default guidance targets must belong only to missiles and interceptors.");
+
+		auto added_missile = params.entities[2];
+		added_missile.id = 5;
+		added_missile.key = "added_missile";
+		added_missile.initial_pursuit->target_key = "blue_interceptor";
+		auto added_interceptor = params.entities[3];
+		added_interceptor.id = 6;
+		added_interceptor.key = "added_interceptor";
+		added_interceptor.initial_pursuit->target_key = "added_missile";
+		params.entities.push_back(added_missile);
+		params.entities.push_back(added_interceptor);
+		std::reverse(params.entities.begin(), params.entities.end());
+		entities = instantiate_entities(params);
+		check(target_key("added_missile") == "blue_interceptor" &&
+				target_key("added_interceptor") == "added_missile" &&
+				target_key("red_missile") == "blue_satellite" &&
+				target_key("blue_interceptor") == "red_missile",
+			"Manual targets must resolve by key independently of configuration order.");
+		initialize_pursuits(params, entities);
+		const Entity &interceptor = require_entity(entities, "added_interceptor");
+		const Entity &missile = require_entity(entities, "added_missile");
+		check((interceptor.kinematics.vel_mps -
+				(missile.kinematics.pos_m - interceptor.kinematics.pos_m).normalized() *
+				added_interceptor.initial_pursuit->speed_mps).norm() < 1e-9,
+			"Initial pursuit must use the same manually selected guidance target.");
+
+		for (const std::string &invalid_target : { "missing_entity", "added_interceptor" })
+		{
+			params.entities.front().initial_pursuit->target_key = invalid_target;
+			bool rejected = false;
+			try { instantiate_entities(params); }
+			catch (const std::invalid_argument &) { rejected = true; }
+			check(rejected, "Missing and self guidance targets must be rejected.");
+		}
 	}
 
 	void test_seeded_radar_contract()
@@ -188,21 +333,21 @@ namespace
 		params.bandwidth_hz = 10'000.0;
 		params.pw_us = 100.0;
 		params.pri_us = 1'000.0;
-		RadarModule first(params, 1234);
-		RadarModule second(params, 1234);
+		RadarComponent first{ .params = finalize_radar_params(params) };
+		RadarComponent second{ .params = finalize_radar_params(params) };
+		std::mt19937 first_rng(1234), second_rng(1234);
 		KinematicStateECI observer;
-		KinematicStateECI target;
-		target.pos_m.x() = 100'000.0;
-		const auto product = range_doppler_map(first, observer, target, 0.0);
-		const auto repeated = range_doppler_map(second, observer, target, 0.0);
-		check(product.has_value() && repeated.has_value(), "Detectable target produced no product.");
-		check(product->samples.rows() == 16 && product->samples.cols() == 27,
+		Entity target;
+		target.kinematics.pos_m.x() = 100'000.0;
+		generate_returns(observer, first, { target }, first_rng);
+		generate_returns(observer, second, { target }, second_rng);
+		process_returns(first);
+		process_returns(second);
+		check(first.state.range_pulse_map.rows() == 27 && first.state.range_pulse_map.cols() == 16,
 			"Range-pulse sample dimensions changed.");
-		check(product->samples == repeated->samples, "Seeded radar outputs must be repeatable.");
-		const auto grid = make_noisy_range_doppler_series(*product, first.p, 1, 0.5);
-		check(grid.rows == 27 && grid.columns == 16 && grid.values.size() == 27 * 16 &&
-				grid.time_axis.values == std::vector<double>{ 0.5 },
-			"Range-pulse display orientation or timeline changed.");
+		check(first.state.range_pulse_map == second.state.range_pulse_map &&
+			first.state.range_doppler_map == second.state.range_doppler_map,
+			"Seeded raw and processed radar outputs must be repeatable.");
 	}
 }
 
@@ -211,6 +356,8 @@ int main()
 	try
 	{
 		test_coordinate_conversions();
+		test_guidance_and_controls();
+		test_configured_guidance_targets();
 		test_simulation_contract();
 		test_entity_logger();
 		test_seeded_radar_contract();

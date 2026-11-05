@@ -1,12 +1,10 @@
 #pragma once
 
-#include <vector>
-
-#include "core/entity.hpp"
+#include "sensors/radar/radar_component.hpp"
 
 namespace apogee{
-    void process_returns(const KinematicStateECI &radar_pos,
-        RadarComponent &radar,
-        const std::vector<Entity> &targets);
+    // Range rows, pulse columns in; range rows, FFT-shifted Doppler columns out.
+    // Processing depends only on measured returns and the transmit template.
+    void process_returns(RadarComponent &radar);
 }
 

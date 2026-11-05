@@ -11,7 +11,7 @@ import pytest
 import rerun as rr
 import rerun.blueprint as rrb
 
-from analysis.catalog import ARRAY_SERIES, CURVE, METRIC_TABLE, build_analysis_catalog
+from analysis.catalog import ARRAY_SERIES, CURVE, METRIC_TABLE, TRAJECTORY_3D, build_analysis_catalog
 from visualization.rerun_adapter import _log_result, _log_scenario
 from visualization.rerun_blueprint import _view_from_spec
 from visualization.telemetry_catalog import TEXT_SOURCE, build_telemetry_catalog
@@ -51,17 +51,16 @@ def test_logged_fields_automatically_become_analysis_products():
     products = build_analysis_catalog(_result()).products[1:]
     assert [(product.kind, product.key) for product in products] == [
         (CURVE, "history/unfamiliar_field"),
-        (CURVE, "history/direction/x"),
-        (CURVE, "history/direction/y"),
-        (CURVE, "history/direction/z"),
+        (TRAJECTORY_3D, "history/direction"),
         (METRIC_TABLE, "history/mode"),
         (ARRAY_SERIES, "history/signal"),
     ]
     assert all(product.entity_id == 7 for product in products)
     assert all(product.axes[0].values.tolist() == [0, 1, 2, 3] for product in products)
     assert np.isnan(products[0].values[[0, 3]]).all()
-    assert products[2].values.tolist() == [1, 2, 3, 4]
-    assert products[4].metrics[0].values.tolist() == [None, "survey", "", None]
+    assert products[1].values.tolist() == [[index, index + 1, index + 2] for index in range(4)]
+    assert products[1].coordinate_frame == "local"
+    assert products[2].metrics[0].values.tolist() == [None, "survey", "", None]
 
 
 def test_entity_description_combines_only_constant_configuration():
@@ -119,25 +118,29 @@ def test_array_histories_preserve_complex_values_missing_empty_and_changed_dimen
     assert all(not sample.flags.writeable for sample in product.samples if sample is not None)
 
 
-def test_each_radar_gets_its_own_range_pulse_map_view():
-    from analysis.catalog import RANGE_PULSE_MAP
+@pytest.mark.parametrize("field, name", [
+    ("range_pulse_map", "Range–Pulse Map"),
+    ("range_doppler_map", "Range–Doppler Map"),
+])
+def test_each_radar_gets_its_own_map_view(field, name):
 
     result = _result()
     original = result.arrays[0]
     result.arrays = []
     for radar in ("search", "track"):
-        item = _series(f"name:{radar}/state/range_pulse_map", original.values)
+        item = _series(f"name:{radar}/state/{field}", original.values)
         item.system = "radars"
         item.presentation.group = f"Radars / {radar} / State"
         result.arrays.append(item)
     products = [
         product for product in build_analysis_catalog(result).products
-        if product.kind == RANGE_PULSE_MAP
+        if product.kind == field
     ]
     assert len(products) == 2
     assert products[0].identity != products[1].identity
-    assert all(product.name == "Range–Pulse Map" for product in products)
+    assert all(product.name == name for product in products)
     assert all(len(product.samples) == 4 for product in products)
+    np.testing.assert_array_equal(products[0].samples[2], [[1 + 2j, 3 - 4j], [-5j, 6]])
 
 
 def test_logged_history_validation_keeps_timesteps_and_dimensions_consistent():
@@ -295,7 +298,9 @@ matplotlib.use('agg')
 import numpy as np
 from PySide6.QtWidgets import QApplication
 from analysis.catalog import ARRAY_SERIES, METRIC_TABLE, AnalysisProduct, AxisData, MetricData
-from analysis.renderers import ArraySeriesWidget, MetricTableWidget, RangePulseMapWidget
+from analysis.renderers import (
+    ArraySeriesWidget, MetricTableWidget, RangePulseMapWidget, RangeDopplerMapWidget,
+)
 
 app = QApplication([])
 axis = AxisData('time', 'Time', 's', 'time', np.arange(4.0))
@@ -329,6 +334,18 @@ radar.time_control.slider.setValue(3)
 assert radar.plot.images[0].get_array().shape == (2, 1)
 assert '3 s' in radar.plot.get_title()
 radar.close()
+doppler = RangeDopplerMapWidget(product)
+assert doppler.component.currentText() == 'Magnitude'
+doppler.time_control.slider.setValue(2)
+np.testing.assert_allclose(doppler.plot.images[0].get_array(), [[np.sqrt(5), 5]])
+assert doppler.plot.get_xlabel() == 'Shifted Doppler bin'
+assert doppler.plot.get_ylabel() == 'Range sample index'
+np.testing.assert_allclose(doppler.plot.images[0].get_extent(), [-1.5, 0.5, -0.5, 0.5])
+np.testing.assert_allclose(doppler._extent(np.ones((4, 5))), [-2.5, 2.5, -0.5, 3.5])
+doppler.time_control.slider.setValue(3)
+assert doppler.plot.images[0].get_array().shape == (2, 1)
+np.testing.assert_allclose(doppler.plot.images[0].get_extent(), [-0.5, 0.5, -0.5, 1.5])
+doppler.close()
 text_product = AnalysisProduct(
     METRIC_TABLE, None, 'custom', 'mode', 'Mode', axes=(axis,),
     metrics=(MetricData('mode', 'Mode', '', np.array([None, 'survey', '', None], object)),),

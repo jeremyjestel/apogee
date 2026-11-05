@@ -6,6 +6,7 @@
 #include <stdexcept>
 #include <string>
 #include <tuple>
+#include <type_traits>
 #include <vector>
 
 #include "math/constants.hpp"
@@ -23,6 +24,13 @@ namespace apogee
 
 	namespace
 	{
+		template <typename Value> constexpr const char *parameter_value_type()
+		{
+			if constexpr (std::is_same_v<Value, std::string>) return "string";
+			else if constexpr (std::is_integral_v<Value>) return "int";
+			else return "float";
+		}
+
 		// Expand a parameter struct's descriptor tuple into writable Python fields.
 		template <typename Type> void bind_parameter_fields(py::class_<Type> &binding)
 		{
@@ -37,6 +45,8 @@ namespace apogee
 			py::class_<Type> binding{ module, name };
 			binding.def(py::init<>());
 			bind_parameter_fields(binding);
+			if constexpr (std::is_same_v<Type, InitialPursuitParams>)
+				binding.def_readwrite("target_key", &InitialPursuitParams::target_key);
 		}
 
 		// Visit every described scalar while carrying its UI group and dotted path.
@@ -48,7 +58,9 @@ namespace apogee
 				[&](const auto &...field)
 				{
 					(visitor(
-						 ParameterSpec{ group, prefix + "." + field.key, field.name, field.unit },
+						 ParameterSpec{ group, prefix + "." + field.key, field.name, field.unit,
+							parameter_value_type<std::remove_reference_t<decltype(values.*(field.member))>>(),
+							{ field.choices.begin(), field.choices.end() } },
 						 values.*(field.member)),
 						...);
 				},
@@ -121,47 +133,52 @@ namespace apogee
 		}
 
 		// Build UI metadata from a fresh default scenario so defaults stay in C++.
-		std::vector<ParameterSpec> make_parameter_specs()
+		std::vector<ParameterSpec> make_parameter_specs(ScenarioParams params)
 		{
-			ScenarioParams params = make_default_scenario();
 			std::vector<ParameterSpec> specs;
 
 			visit_parameters(
-				params, [&](const ParameterSpec &spec, double &) { specs.push_back(spec); });
+				params, [&](const ParameterSpec &spec, auto &) { specs.push_back(spec); });
 
 			return specs;
 		}
 
-		// Resolve a path once for both reading and writing the stored scalar.
-		double &find_parameter(ScenarioParams &params, const std::string &path)
+		// Resolve a path once while preserving the stored parameter's native type.
+		template <typename Visitor>
+		void with_parameter(ScenarioParams &params, const std::string &path, Visitor &&visitor)
 		{
-			double *value = nullptr;
+			bool found = false;
 
 			visit_parameters(params,
-				[&](const ParameterSpec &spec, double &parameter_value)
+				[&](const ParameterSpec &spec, auto &parameter_value)
 				{
 					if (spec.path == path)
 					{
-						value = &parameter_value;
+						visitor(parameter_value);
+						found = true;
 					}
 				});
 
-			if (value == nullptr)
+			if (!found)
 			{
 				throw std::invalid_argument("Unknown parameter path: " + path);
 			}
-
-			return *value;
 		}
 
-		double get_parameter(ScenarioParams &params, const std::string &path)
+		py::object get_parameter(ScenarioParams &params, const std::string &path)
 		{
-			return find_parameter(params, path);
+			py::object result;
+			with_parameter(params, path, [&](const auto &value) { result = py::cast(value); });
+			return result;
 		}
 
-		void set_parameter(ScenarioParams &params, const std::string &path, double value)
+		void set_parameter(ScenarioParams &params, const std::string &path, const py::object &value)
 		{
-			find_parameter(params, path) = value;
+			with_parameter(params, path, [&](auto &stored)
+			{
+				using Value = std::remove_reference_t<decltype(stored)>;
+				stored = py::cast<Value>(value);
+			});
 		}
 
 		// Return the actual vector element so Python edits the stored definition.
@@ -177,6 +194,21 @@ namespace apogee
 			}
 
 			return *match;
+		}
+
+		EntityDefinition make_entity_definition(const std::string &type,
+			const std::string &key, int id)
+		{
+			const auto defaults = make_default_scenario();
+			const auto source = std::find_if(defaults.entities.begin(), defaults.entities.end(),
+				[&](const EntityDefinition &entity) { return entity.type == type; });
+			if (source == defaults.entities.end())
+				throw std::invalid_argument("Unknown entity type: " + type);
+			EntityDefinition entity = *source;
+			entity.id = id;
+			entity.key = key;
+			entity.display_name = type + " " + std::to_string(id);
+			return entity;
 		}
 	}
 
@@ -229,9 +261,9 @@ namespace apogee
 		py::class_<EntityDefinition>(m, "EntityDefinition")
 			.def_readonly("id", &EntityDefinition::id)
 			.def_readonly("key", &EntityDefinition::key)
-			.def_readonly("display_name", &EntityDefinition::display_name)
-			.def_readonly("type", &EntityDefinition::type)
-			.def_readonly("team", &EntityDefinition::team)
+			.def_readwrite("display_name", &EntityDefinition::display_name)
+			.def_readwrite("type", &EntityDefinition::type)
+			.def_readwrite("team", &EntityDefinition::team)
 			.def_readwrite("initial_kinematics", &EntityDefinition::initial_kinematics)
 			.def_property_readonly(
 				"ground",
@@ -259,6 +291,8 @@ namespace apogee
 		// Construct Python Params from the four-entity default scenario each run.
 		py::class_<ScenarioParams>(m, "Params")
 			.def(py::init([]() { return make_default_scenario(); }))
+			.def(py::init<const ScenarioParams &>())
+			.def_readwrite("entities", &ScenarioParams::entities)
 			.def_readwrite("simulation", &ScenarioParams::simulation)
 			.def_readwrite("radar_analysis", &ScenarioParams::radar_analysis)
 			.def("entity",
@@ -271,11 +305,17 @@ namespace apogee
 			.def_readonly("group", &ParameterSpec::group)
 			.def_readonly("path", &ParameterSpec::path)
 			.def_readonly("name", &ParameterSpec::name)
-			.def_readonly("unit", &ParameterSpec::unit);
+			.def_readonly("unit", &ParameterSpec::unit)
+			.def_readonly("value_type", &ParameterSpec::value_type)
+			.def_readonly("choices", &ParameterSpec::choices);
 
 		m.def("parameter_specs",
-			&make_parameter_specs,
+			[](py::object params) { return make_parameter_specs(params.is_none()
+				? make_default_scenario() : params.cast<ScenarioParams>()); },
+			py::arg("params") = py::none(),
 			"Return the parameter names, units, groups, and attribute paths.");
+		m.def("make_entity_definition", &make_entity_definition,
+			py::arg("type"), py::arg("key"), py::arg("id"));
 		m.def("get_parameter",
 			&get_parameter,
 			py::arg("params"),

@@ -8,13 +8,14 @@
 #include "math/types.hpp"
 #include "sensors/radar/models/radar_range_equation.hpp"
 
-
 // Goal is to just return the complex range pulse map here
-namespace apogee{
+namespace apogee
+{
     void generate_returns(const KinematicStateECI &entity_motion,
-        RadarComponent &radar,
-        const std::vector<Entity> &targets,
-        std::mt19937 &rng){
+                          RadarComponent &radar,
+                          const std::vector<Entity> &targets,
+                          std::mt19937 &rng)
+    {
 
         const RadarParams &params = radar.params;
 
@@ -26,11 +27,16 @@ namespace apogee{
         Index target_range_ind;
 
         int pulse_n_samples = params.sampling_rate_hz * params.pw_s;
-        VecX pulse_t_s = VecX::LinSpaced(pulse_n_samples, 0, params.pw_s);
-        radar.state.wf = (constants::j * params.frequency_hz * pulse_t_s).array().exp().matrix();
+        VecX pulse_t_s = VecX::LinSpaced(pulse_n_samples, 0, pulse_n_samples - 1)
+            / params.sampling_rate_hz;
+        double chirp_rate = params.bandwidth_hz / params.pw_s;
+        // Both carrier and chirp belong in the imaginary phase of the exponential.
+        radar.state.wf = (constants::j * (2.0 * constants::pi * params.frequency_hz * pulse_t_s.array()
+            + constants::pi * chirp_rate * pulse_t_s.array().square())).exp().matrix();
         RadarEquationResult rre_result;
 
-        for (auto& target : targets) {
+        for (auto &target : targets)
+        {
             Vec3 rel_pos_m = entity_motion.pos_m - target.kinematics.pos_m;
             double rel_range = rel_pos_m.norm();
             Vec3 rel_vel = entity_motion.vel_mps - target.kinematics.vel_mps;
@@ -39,16 +45,13 @@ namespace apogee{
             double _ = (range_swath.array() - rel_range).abs().minCoeff(&target_range_ind);
             rre_result = radar_range_equation(params, target.radar_signature_dbsm, rel_range);
             rp_delta_mat.row(target_range_ind) = rre_result.signal_power_w * (constants::j * params.wavenumber * 2.0 * range_progression.array()).exp().matrix().transpose(); // Dirac delta here
-
         }
         CMatX noise_mat = std::sqrt(rre_result.noise_power_w) * crandn(rp_mat.rows(), rp_mat.cols(), rng);
         CMatX rp_noisy_mat = rp_delta_mat + noise_mat;
-        for (int pulse_idx = 0; pulse_idx < params.pulse_num;pulse_idx++){
+        for (int pulse_idx = 0; pulse_idx < params.pulse_num; pulse_idx++)
+        {
             rp_mat.col(pulse_idx) = convolve(rp_delta_mat.col(pulse_idx), radar.state.wf, "same");
         }
         radar.state.range_pulse_map = rp_mat;
-        
-
-
     }
 }

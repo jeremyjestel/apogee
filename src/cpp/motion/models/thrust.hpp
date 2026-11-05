@@ -4,5 +4,5 @@
 
 namespace apogee
 {
-	Vec3 thrust(double mass);
+	Vec3 thrust(Vec3 pos_m, double mass);
 }

@@ -14,6 +14,7 @@
     "blue_radar.radar.rx_gain_db": "20.0",
     "blue_radar.radar.noise_figure_db": "3.0",
     "blue_radar.radar.bandwidth_hz": "1000000.0",
+    "blue_radar.radar.doppler_zero_pad_factor": "4",
     "blue_radar.radar.system_loss_db": "3.0",
     "blue_radar.radar.pulse_width_us": "1.0",
     "blue_radar.radar.pri_us": "3000.0",

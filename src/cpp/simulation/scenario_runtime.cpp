@@ -58,6 +58,22 @@ namespace apogee
 		{
 			entities.push_back(instantiate(definition));
 		}
+		for (std::size_t index = 0; index < params.entities.size(); ++index)
+		{
+			const EntityDefinition &definition = params.entities[index];
+			if ((definition.type != "missile" && definition.type != "interceptor") ||
+				!definition.initial_pursuit)
+			{
+				continue;
+			}
+
+			const Entity &target = require_entity(entities, definition.initial_pursuit->target_key);
+			if (&target == &entities[index])
+			{
+				throw std::invalid_argument("An entity cannot target itself: " + definition.key);
+			}
+			entities[index].guidance.target_index = static_cast<std::size_t>(&target - entities.data());
+		}
 		return entities;
 	}
 
@@ -66,13 +82,13 @@ namespace apogee
 		for (std::size_t index = 0; index < params.entities.size(); ++index)
 		{
 			const EntityDefinition &definition = params.entities[index];
-			if (!definition.initial_pursuit)
+			if (!entities[index].guidance.target_index)
 			{
 				continue;
 			}
 
 			Entity &entity = entities[index];
-			const Entity &target = require_entity(entities, definition.initial_pursuit->target_key);
+			const Entity &target = entities[*entity.guidance.target_index];
 			const double dx = target.kinematics.pos_m.x() - entity.kinematics.pos_m.x();
 			const double dy = target.kinematics.pos_m.y() - entity.kinematics.pos_m.y();
 			const double dz = target.kinematics.pos_m.z() - entity.kinematics.pos_m.z();
