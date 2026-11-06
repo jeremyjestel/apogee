@@ -201,6 +201,7 @@ namespace
 		entities[0].kinematics = KinematicStateECI{
 			Vec3{ 4.0, 5.0, 6.0 }, Vec3{ 0.0, 0.0, 12.0 }, Vec3{ 0.0, 1.0, 0.0 } };
 		entities[0].guidance.accel_command = Vec3{ 0.0, 2.0, 3.0 };
+		entities[0].guidance.guidance_gain = 0.75;
 		entities[0].controls.accel_actual = Vec3{ 0.0, 1.0, 1.5 };
 		entities[1].kinematics.pos_m = Vec3{ 40.0, 50.0, 60.0 };
 		const std::vector<Entity> reordered{ entities[1], entities[0] };
@@ -223,17 +224,20 @@ namespace
 				find(result.vectors, 41, "controls", "accel_actual").values.back() ==
 				entities[0].controls.accel_actual,
 			"Logger must capture guidance commands and control outputs.");
+		check(find(result.scalars, 41, "guidance", "guidance_gain").values ==
+			std::vector<double>{ 0.5, 0.75 }, "Logger must capture the current guidance gain.");
 	}
 
 	void test_guidance_and_controls()
 	{
 		std::vector<Entity> entities(3);
 		entities[0].type = "missile";
+		entities[0].kinematics.pos_m = Vec3{ constants::earth_radius_m + 100'000.0, 0.0, 0.0 };
 		entities[0].kinematics.vel_mps = Vec3{ 10.0, 0.0, 0.0 };
 		entities[0].guidance.target_index = 1;
 		entities[0].controls.time_constant_s = 0.1;
 		entities[1].type = "satellite";
-		entities[1].kinematics.pos_m = Vec3{ 100.0, 0.0, 0.0 };
+		entities[1].kinematics.pos_m = entities[0].kinematics.pos_m + Vec3{ 100.0, 0.0, 0.0 };
 		entities[1].kinematics.vel_mps = Vec3{ 0.0, 2.0, 0.0 };
 		entities[1].guidance.target_index = 0;
 		entities[1].guidance.accel_command = Vec3::Ones();
@@ -271,6 +275,7 @@ namespace
 		check(prop_nav(entities[0], entities[1]).isZero(),
 			"Coincident target positions must produce a finite zero command.");
 		entities[0].guidance.target_index.reset();
+		entities[2].guidance.target_index.reset();
 		guidance_commands(entities, rng);
 		check(entities[0].guidance.accel_command.isZero(),
 			"Removing a target must clear the previous guidance command.");
@@ -279,7 +284,10 @@ namespace
 	void test_configured_guidance_targets()
 	{
 		auto params = make_default_scenario();
+		params.entities[2].initial_pursuit->guidance_gain = 0.75;
 		auto entities = instantiate_entities(params);
+		check(require_entity(entities, "red_missile").guidance.guidance_gain == 0.75,
+			"Configured guidance gain must be copied into fresh runtime state.");
 		auto target_key = [&](const std::string &key) -> const std::string &
 		{
 			const Entity &entity = require_entity(entities, key);

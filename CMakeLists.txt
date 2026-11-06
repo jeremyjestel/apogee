@@ -10,6 +10,7 @@ add_library(apogee_core STATIC
     src/cpp/estimation/estimation_system.cpp
     src/cpp/guidance/guidance_system.cpp
     src/cpp/guidance/models/prop_nav.cpp
+    src/cpp/guidance/models/point_nav.cpp
     src/cpp/motion/models/drag.cpp
     src/cpp/motion/models/gravity.cpp
     src/cpp/motion/models/ground_motion.cpp

@@ -127,7 +127,7 @@ def decode_scenario_definition(text):
         parameters = parameters.copy()
         processing_suffixes = (".radar.pulse_num", ".radar.range_window", ".radar.doppler_window")
         for path, value in default_parameter_values(params).items():
-            if (path.endswith(".radar.doppler_zero_pad_factor") or
+            if (path.endswith((".radar.doppler_zero_pad_factor", ".initial_pursuit.guidance_gain")) or
                     scenario["version"] == 1 and path.endswith(processing_suffixes)):
                 parameters.setdefault(path, value)
     return params, validated_parameter_values(parameters, params)

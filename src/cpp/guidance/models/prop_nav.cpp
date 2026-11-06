@@ -17,6 +17,7 @@ namespace apogee
 		const double closing_velocity = -relative_velocity.dot(r_hat);
 		const Vec3 angular_rate = relative_position.cross(relative_velocity) / range_squared;
         double N = 3.0;
-		return N * closing_velocity * angular_rate.cross(r_hat);
+		Vec3 accel_command = N * closing_velocity * angular_rate.cross(r_hat);
+		return accel_command;
 	}
 }

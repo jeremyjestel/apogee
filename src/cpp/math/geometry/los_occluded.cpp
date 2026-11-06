@@ -1,14 +1,13 @@
 #include "math/geometry/los_occluded.hpp"
 #include <cmath> 
 #include <algorithm>
-
+#include "math/constants.hpp"
 
 namespace apogee {
 
     bool has_line_of_sight(
         const Vec3& pos_a,
-        const Vec3& pos_b,
-        double earth_radius_m
+        const Vec3& pos_b
     )
     {
         Vec3 d = pos_b - pos_a;
@@ -17,7 +16,7 @@ namespace apogee {
 
         Vec3 minima = pos_a + d * t;
 
-        if (minima.norm() > earth_radius_m) {
+        if (minima.norm() > constants::earth_radius_m) {
             return true;
         }
         return false;

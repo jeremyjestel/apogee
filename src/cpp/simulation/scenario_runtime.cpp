@@ -73,6 +73,7 @@ namespace apogee
 				throw std::invalid_argument("An entity cannot target itself: " + definition.key);
 			}
 			entities[index].guidance.target_index = static_cast<std::size_t>(&target - entities.data());
+			entities[index].guidance.guidance_gain = definition.initial_pursuit->guidance_gain;
 		}
 		return entities;
 	}

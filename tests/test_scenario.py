@@ -54,6 +54,28 @@ def test_scenario_uses_default_targets_when_not_overridden():
     assert params.entity("blue_interceptor").initial_pursuit.target_key == "red_missile"
 
 
+@pytest.mark.parametrize("version", [1, 2])
+def test_guidance_gain_round_trip_and_older_scenario_default(version):
+    original = apogee.Params()
+    values = default_parameter_values(original)
+    paths = {path for path in values if path.endswith(".guidance_gain")}
+    assert paths == {"red_missile.initial_pursuit.guidance_gain",
+                     "blue_interceptor.initial_pursuit.guidance_gain"}
+    values["red_missile.initial_pursuit.guidance_gain"] = " 0.7500 "
+    encoded = encode_scenario(values, original if version == 2 else None)
+    definition, restored = decode_scenario_definition(encoded)
+    params = create_params_from_text(restored, definition)
+    assert restored == values
+    assert params.entity("red_missile").initial_pursuit.guidance_gain == 0.75
+    assert params.entity("blue_interceptor").initial_pursuit.guidance_gain == 0.5
+
+    legacy = json.loads(encoded)
+    for path in paths:
+        legacy["parameters"].pop(path)
+    _, restored = decode_scenario_definition(json.dumps(legacy))
+    assert all(restored[path] == "0.5" for path in paths)
+
+
 @pytest.mark.parametrize("version", [True, False, 1.0, "1", None])
 def test_scenario_format_requires_an_integer_version(version):
     text = json.dumps({"version": version, "parameters": default_parameter_values()})

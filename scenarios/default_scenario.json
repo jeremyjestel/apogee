@@ -29,11 +29,13 @@
     "red_missile.initial_pursuit.longitude_deg": "90.0",
     "red_missile.initial_pursuit.altitude_m": "100193.166642",
     "red_missile.initial_pursuit.speed_mps": "1520.690633",
+    "red_missile.initial_pursuit.guidance_gain": "0.5",
     "red_missile.radar_signature_dbsm": "-10.0",
     "blue_interceptor.initial_pursuit.latitude_deg": "0.4482395509",
     "blue_interceptor.initial_pursuit.longitude_deg": "-0.2689502051",
     "blue_interceptor.initial_pursuit.altitude_m": "20265.993526",
     "blue_interceptor.initial_pursuit.speed_mps": "1345.362405",
+    "blue_interceptor.initial_pursuit.guidance_gain": "0.5",
     "blue_interceptor.radar_signature_dbsm": "0.0"
   }
 }

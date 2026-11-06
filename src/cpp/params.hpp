@@ -257,6 +257,7 @@ namespace apogee
 		double longitude_deg = 0.0;
 		double altitude_m = 0.0;
 		double speed_mps = 0.0;
+		double guidance_gain = 0.5;
 		std::string target_key;
 
 		KinematicStateECI initial_kinematics() const
@@ -289,7 +290,8 @@ namespace apogee
 				parameter(
 					"longitude_deg", &InitialPursuitParams::longitude_deg, "Longitude", "deg"),
 				parameter("altitude_m", &InitialPursuitParams::altitude_m, "Altitude", "m"),
-				parameter("speed_mps", &InitialPursuitParams::speed_mps, "Speed", "m/s")
+				parameter("speed_mps", &InitialPursuitParams::speed_mps, "Speed", "m/s"),
+				parameter("guidance_gain", &InitialPursuitParams::guidance_gain, "Guidance gain", "1/s")
 			};
 		}
 	};
