@@ -34,10 +34,32 @@ guidance/control outputs on the next system update, and skip sensor processing.
 Radar omits inactive targets, and guidance ignores inactive selected targets.
 The `entity/active` history records changes as 1 (active) or 0 (inactive).
 
-This flag represents both destroyed and disabled; it does not automatically
-detect collisions or distinguish the reason an entity became inactive. Direct
+This flag represents both destroyed and disabled without distinguishing the reason.
+The motion system deactivates colliding/proximity-hit pairs using the radii below. Direct
 model calls such as `prop_nav()` still evaluate their inputs; the entity systems
 enforce activity checks.
+
+## Entity radii
+
+`size_radius` is a spherical collision radius and `blast_radius` is a proximity
+destruction radius, both in meters. These are illustrative simulation defaults:
+
+| Entity type | Size radius | Blast radius |
+|---|---:|---:|
+| Radar | 10 | 0 |
+| Satellite | 5 | 0 |
+| Missile | 2 | 50 |
+| Interceptor | 1 | 25 |
+
+Edit **Size radius** and **Blast radius** on an entity's parameter card, or set
+`params.entity("blue_interceptor").blast_radius = 40.0` in Python. The values are
+copied into each runtime entity and logged. Older scenarios receive their entity
+type's defaults when these parameters are absent.
+
+The current discrete collision check deactivates both entities when their center
+distance is at most `max(size_a + size_b, blast_a, blast_b)`. Checks exclude self
+and inactive entities, and run before motion. This is a simple proximity model;
+it does not calculate blast damage or swept collisions between time samples.
 
 ## Planned
 

@@ -8,6 +8,7 @@ add_library(apogee_core STATIC
     src/cpp/analysis/radar_range.cpp
     src/cpp/controls/control_system.cpp
     src/cpp/estimation/estimation_system.cpp
+    src/cpp/estimation/models/ekf_radar.cpp
     src/cpp/guidance/guidance_system.cpp
     src/cpp/guidance/models/prop_nav.cpp
     src/cpp/guidance/models/point_nav.cpp

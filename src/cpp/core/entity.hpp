@@ -29,6 +29,8 @@ namespace apogee
 		GuidanceState guidance;
 		ControlState controls;
 		double radar_signature_dbsm = 0.0;
+		double blast_radius = 0.0;
+		double size_radius = 1.0;
 
 		static constexpr auto data_fields()
 		{
@@ -46,7 +48,9 @@ namespace apogee
 				data_field("radars", &Entity::radars, "Radars"),
 				data_field("guidance", &Entity::guidance, "Guidance"),
 				data_field("controls", &Entity::controls, "Controls"),
-				data_field("radar_signature_dbsm", &Entity::radar_signature_dbsm, "Radar signature", "dBsm") };
+				data_field("radar_signature_dbsm", &Entity::radar_signature_dbsm, "Radar signature", "dBsm"),
+				data_field("blast_radius", &Entity::blast_radius, "Blast radius", "m"),
+				data_field("size_radius", &Entity::size_radius, "Size radius", "m") };
 		}
 	};
 

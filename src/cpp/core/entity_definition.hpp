@@ -31,6 +31,8 @@ namespace apogee
 		// An engaged optional attaches radar behavior when this definition is instantiated.
 		std::optional<RadarParams> radar;
 		double radar_signature_dbsm = 0.0;
+		double blast_radius = 0.0;
+		double size_radius = 1.0;
 
 		// Entity-wide editable values are exposed through the same descriptor mechanism.
 		static constexpr auto fields()
@@ -39,7 +41,9 @@ namespace apogee
 				parameter("radar_signature_dbsm",
 				&EntityDefinition::radar_signature_dbsm,
 				"Radar signature",
-				"dBsm") };
+				"dBsm"),
+				parameter("blast_radius", &EntityDefinition::blast_radius, "Blast radius", "m"),
+				parameter("size_radius", &EntityDefinition::size_radius, "Size radius", "m") };
 		}
 	};
 

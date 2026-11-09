@@ -78,6 +78,42 @@ namespace
               "Active state changes must be logged on the simulation timeline.");
     }
 
+    void test_collision_radii()
+    {
+        auto params = make_default_scenario();
+        auto defaults = instantiate_entities(params);
+        check(require_entity(defaults, "blue_radar").size_radius == 10.0 &&
+              require_entity(defaults, "blue_satellite").blast_radius == 0.0 &&
+              require_entity(defaults, "red_missile").blast_radius == 50.0 &&
+              require_entity(defaults, "blue_interceptor").blast_radius == 25.0,
+              "Runtime entities must inherit per-type collision defaults.");
+        std::vector<Entity> entities(2);
+        entities[0].kinematics.pos_m = Vec3{ constants::earth_radius_m + 100'000.0, 0.0, 0.0 };
+        entities[1].kinematics.pos_m = entities[0].kinematics.pos_m + Vec3{ 100.0, 0.0, 0.0 };
+        entities[0].size_radius = 2.0;
+        entities[1].size_radius = 3.0;
+        motion_step(entities, 0.0);
+        check(entities[0].active && entities[1].active, "Separated entities must not collide or hit themselves.");
+        entities[1].kinematics.pos_m = entities[0].kinematics.pos_m + Vec3{ 5.0, 0.0, 0.0 };
+        const auto before = entities[0].kinematics.pos_m;
+        motion_step(entities, 0.1);
+        check(!entities[0].active && !entities[1].active && entities[0].kinematics.pos_m == before,
+              "Touching physical spheres must deactivate both entities before motion.");
+        entities[0].active = entities[1].active = true;
+        entities[1].kinematics.pos_m = entities[0].kinematics.pos_m + Vec3{ 25.0, 0.0, 0.0 };
+        entities[1].blast_radius = 25.0;
+        motion_step(entities, 0.0);
+        check(!entities[0].active && !entities[1].active, "Either entity's blast radius must trigger a proximity hit.");
+        entities[0].active = true;
+        motion_step(entities, 0.0);
+        check(entities[0].active, "Inactive nearby entities must not cause another collision.");
+        params.entities.front().size_radius = -1.0;
+        bool rejected = false;
+        try { instantiate_entities(params); }
+        catch (const std::invalid_argument &) { rejected = true; }
+        check(rejected, "Negative collision radii must be rejected.");
+    }
+
     void test_radar_activity()
     {
         std::vector<Entity> entities(3);
@@ -116,6 +152,7 @@ int main()
         test_disabled_systems_and_targets();
         test_instantiation_and_history();
         test_radar_activity();
+        test_collision_radii();
         std::cout << "Entity active checks passed.\n";
         return 0;
     }

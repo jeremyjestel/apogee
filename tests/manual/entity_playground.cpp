@@ -27,6 +27,8 @@ namespace
         missile.key = "test_missile";
         missile.type = "missile";
         missile.active = true; // Set false to disable this entity in system/pipeline tests.
+        missile.blast_radius = 50.0;
+        missile.size_radius = 2.0;
         missile.kinematics.pos_m = lla2eci(0.0, 0.0, 200'000.0, 0.0);
         missile.kinematics.vel_mps = Vec3{ 0.0, 1'500.0, 0.0 };
         missile.guidance.guidance_gain = 0.5;
@@ -37,6 +39,7 @@ namespace
         satellite.id = 2;
         satellite.key = "test_satellite";
         satellite.type = "satellite";
+        satellite.size_radius = 5.0;
         satellite.kinematics.pos_m = lla2eci(0.0, 2.0, 500'000.0, 0.0);
         satellite.kinematics.vel_mps = Vec3{ 0.0, 7'500.0, 0.0 };
 
@@ -44,6 +47,8 @@ namespace
         interceptor.id = 3;
         interceptor.key = "test_interceptor";
         interceptor.type = "interceptor";
+        interceptor.blast_radius = 25.0;
+        interceptor.size_radius = 1.0;
         interceptor.kinematics.pos_m = lla2eci(1.0, -1.0, 100'000.0, 0.0);
         interceptor.kinematics.vel_mps = Vec3{ 0.0, 2'000.0, 0.0 };
         interceptor.guidance.target_index = 0;
@@ -55,6 +60,8 @@ namespace
     {
         std::cout << entity.key << '\n'
                   << "  active:             " << std::boolalpha << entity.active << '\n'
+                  << "  blast radius (m):   " << entity.blast_radius << '\n'
+                  << "  size radius (m):    " << entity.size_radius << '\n'
                   << "  position ECI (m):   " << entity.kinematics.pos_m.transpose() << '\n'
                   << "  velocity (m/s):     " << entity.kinematics.vel_mps.transpose() << '\n'
                   << "  speed (m/s):        " << entity.kinematics.vel_mps.norm() << '\n'

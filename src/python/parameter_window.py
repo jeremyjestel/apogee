@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import random
 import sys
 import threading
 
@@ -234,6 +235,16 @@ class ParameterWindow(QMainWindow):
             grid.addWidget(QLabel("Unit"), 0, 1)
             grid.addWidget(QLabel("Value for next run"), 0, 2)
             row = 1
+            card.randomize_location_button = QPushButton("Randomize location")
+            altitude_limit_m = {"radar": 10_000, "satellite": 36_000_000}.get(entity.type, 2_000_000)
+            card.randomize_location_button.setToolTip(
+                f"Randomize location with altitude between 0 and {altitude_limit_m / 1000:g} km"
+            )
+            card.randomize_location_button.clicked.connect(
+                lambda _checked=False, key=key: self._randomize_location(key)
+            )
+            grid.addWidget(card.randomize_location_button, row, 2)
+            row += 1
             if entity.type in ("missile", "interceptor"):
                 grid.addWidget(QLabel("Target entity"), row, 0)
                 card.target_combo = QComboBox()
@@ -270,6 +281,25 @@ class ParameterWindow(QMainWindow):
     def _toggle_entity(card, expanded):
         card.body.setVisible(expanded)
         card.toggle.setArrowType(Qt.ArrowType.DownArrow if expanded else Qt.ArrowType.RightArrow)
+
+    def _randomize_location(self, key):
+        entity = self.params.entity(key)
+        altitude_limit_m = {"radar": 10_000, "satellite": 36_000_000}.get(entity.type, 2_000_000)
+        ranges = {
+            "latitude_deg": (-90, 90),
+            "longitude_deg": (-180, 180),
+            "altitude_m": (0, altitude_limit_m),
+            "orbital_altitude_m": (0, altitude_limit_m),
+            "inclination_deg": (0, 180),
+            "ascending_node_deg": (-180, 180),
+            "orbital_phase_deg": (0, 360),
+        }
+        for path, entry in self.entries.items():
+            if path.startswith(key + "."):
+                bounds = ranges.get(path.rsplit(".", 1)[-1])
+                if bounds is not None:
+                    entry.setText(f"{random.uniform(*bounds):.6f}")
+        self.status.setText(f"Randomized location: {entity.display_name}")
 
     def _set_entity_attribute(self, key, attribute, value):
         setattr(self.params.entity(key), attribute, value)

@@ -19,7 +19,7 @@ DESCRIPTION_KEY = "description"
 # deliberately excluded: an inactive model still needs its time history.
 ENTITY_CONFIGURATION = {
     "id", "key", "display_name", "type", "team", "motion_type",
-    "mass", "drag_coeff", "area_m2", "radar_signature_dbsm",
+    "mass", "drag_coeff", "area_m2", "radar_signature_dbsm", "blast_radius", "size_radius",
 }
 
 

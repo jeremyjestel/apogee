@@ -288,7 +288,9 @@ namespace apogee
 				[](EntityDefinition &entity) -> RadarParams *
 				{ return entity.radar ? &*entity.radar : nullptr; },
 				py::return_value_policy::reference_internal)
-			.def_readwrite("radar_signature_dbsm", &EntityDefinition::radar_signature_dbsm);
+			.def_readwrite("radar_signature_dbsm", &EntityDefinition::radar_signature_dbsm)
+			.def_readwrite("blast_radius", &EntityDefinition::blast_radius)
+			.def_readwrite("size_radius", &EntityDefinition::size_radius);
 
 		// Construct Python Params from the four-entity default scenario each run.
 		py::class_<ScenarioParams>(m, "Params")

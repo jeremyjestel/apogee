@@ -13,6 +13,9 @@ namespace apogee
 	{
 		Entity instantiate(const EntityDefinition &definition)
 		{
+			if (!std::isfinite(definition.blast_radius) || definition.blast_radius < 0.0 ||
+				!std::isfinite(definition.size_radius) || definition.size_radius < 0.0)
+				throw std::invalid_argument("Entity radii must be finite and non-negative: " + definition.key);
 			Entity entity{ .id = definition.id,
 				.key = definition.key,
 				.display_name = definition.display_name,
@@ -28,7 +31,9 @@ namespace apogee
 				.mass = definition.mass,
 				.drag_coeff = definition.drag_coeff,
 				.area_m2 = definition.area_m2,
-				.radar_signature_dbsm = definition.radar_signature_dbsm };
+				.radar_signature_dbsm = definition.radar_signature_dbsm,
+				.blast_radius = definition.blast_radius,
+				.size_radius = definition.size_radius };
 			if (definition.radar)
 			{
 				entity.radars.push_back(

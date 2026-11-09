@@ -12,15 +12,24 @@ namespace apogee {
 
     void motion_step(std::vector<Entity> &entities, double dt){
 
-        for (auto& entity : entities){
+        // Check each active pair at the same instant before advancing any entity.
+        for (std::size_t i = 0; i < entities.size(); ++i){
+            auto& entity = entities[i];
             if (!entity.active) continue;
-            for (auto& other_entity : entities){
-                Vec3 diff_pos = (entity.kinematics.pos_m - other_entity.kinematics.pos_m).norm();
-                if (diff_pos > std::max(entity.blast_radius, entity.size_radius)){
+            for (std::size_t j = i + 1; j < entities.size(); ++j){
+                auto& other_entity = entities[j];
+                if (!other_entity.active) continue;
+                const double radius = std::max({entity.size_radius + other_entity.size_radius,entity.blast_radius, other_entity.blast_radius});
+                if ((entity.kinematics.pos_m - other_entity.kinematics.pos_m).squaredNorm() <= radius * radius){
                     entity.active = false;
                     other_entity.active = false;
+                    break;
                 }
             }
+        }
+
+        for (auto& entity : entities){
+            if (!entity.active) continue;
             KinematicStateECI& state = entity.kinematics;
 
             if (entity.motion_type == MotionType::EarthFixed){ //When should update occur

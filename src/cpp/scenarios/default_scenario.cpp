@@ -27,7 +27,9 @@ namespace apogee
 									 .system_loss_db = 3.0,
 									 .pw_us = 1.0,
 									 .pri_us = 3000.0},
-				.radar_signature_dbsm = 0.0};
+				.radar_signature_dbsm = 0.0,
+				.blast_radius = 0.0,
+				.size_radius = 10.0};
 		}
 
 		EntityDefinition make_blue_satellite()
@@ -42,7 +44,9 @@ namespace apogee
 																 .inclination_deg = 0.0,
 																 .ascending_node_deg = 0.0,
 																 .orbital_phase_deg = 90.0},
-									.radar_signature_dbsm = 0.0};
+									.radar_signature_dbsm = 0.0,
+									.blast_radius = 0.0,
+									.size_radius = 5.0};
 		}
 
 		EntityDefinition make_red_missile()
@@ -58,7 +62,9 @@ namespace apogee
 															 .altitude_m = 100'193.166642,
 															 .speed_mps = 1'520.690633,
 															 .target_key = "blue_satellite"},
-									.radar_signature_dbsm = -10.0};
+									.radar_signature_dbsm = -10.0,
+									.blast_radius = 50.0,
+									.size_radius = 2.0};
 		}
 
 		EntityDefinition make_blue_interceptor()
@@ -74,7 +80,9 @@ namespace apogee
 															 .altitude_m = 20'265.993526,
 															 .speed_mps = 1'345.362405,
 															 .target_key = "red_missile"},
-									.radar_signature_dbsm = 0.0};
+									.radar_signature_dbsm = 0.0,
+									.blast_radius = 25.0,
+									.size_radius = 1.0};
 		}
 	}
 
