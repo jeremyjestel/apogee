@@ -54,6 +54,10 @@ endif()
 
 include(CTest)
 if(BUILD_TESTING)
+    # Editable manual playground; keep it separate from automated CTest checks.
+    add_executable(apogee_entity_playground tests/manual/entity_playground.cpp)
+    target_link_libraries(apogee_entity_playground PRIVATE apogee_core)
+
     add_executable(apogee_window_tests
         tests/cpp/test_window.cpp
         src/cpp/math/dsp/window.cpp)
@@ -74,6 +78,10 @@ if(BUILD_TESTING)
     add_executable(apogee_core_tests tests/cpp/test_simulation.cpp)
     target_link_libraries(apogee_core_tests PRIVATE apogee_core)
     add_test(NAME apogee_core_tests COMMAND apogee_core_tests)
+
+    add_executable(apogee_entity_active_tests tests/cpp/test_entity_active.cpp)
+    target_link_libraries(apogee_entity_active_tests PRIVATE apogee_core)
+    add_test(NAME apogee_entity_active_tests COMMAND apogee_entity_active_tests)
 
     add_executable(apogee_coords_tests tests/cpp/test_coords.cpp)
     target_link_libraries(apogee_coords_tests PRIVATE apogee_core)

@@ -114,14 +114,17 @@ def test_parameter_schema_defaults_and_text_round_trip():
     )
 
     edited_values = {
-        path: "hamming" if isinstance(value, str)
+        path: not value if isinstance(value, bool) else "hamming" if isinstance(value, str)
         else value + (1 if isinstance(value, int) else 0.125)
         for path, value in defaults.items()
     }
     edited_text = {path: str(value) for path, value in edited_values.items()}
     edited = _parameter_values(create_params_from_text(edited_text))
     for path, original in defaults.items():
-        if isinstance(original, str):
+        if isinstance(original, bool):
+            assert displayed[path] == str(original)
+            assert edited[path] is edited_values[path]
+        elif isinstance(original, str):
             assert displayed[path] == original
             assert edited[path] == edited_values[path]
         else:

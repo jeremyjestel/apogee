@@ -254,6 +254,8 @@ class ParameterWindow(QMainWindow):
                 grid.addWidget(QLabel(spec.name), row, 0)
                 grid.addWidget(QLabel(spec.unit or "—"), row, 1)
                 entry = QLineEdit(values.get(spec.path, defaults[spec.path]))
+                if spec.value_type == "bool":
+                    entry.setPlaceholderText("true / false")
                 entry.textChanged.connect(self._parameters_changed)
                 grid.addWidget(entry, row, 2)
                 self.entries[spec.path] = entry

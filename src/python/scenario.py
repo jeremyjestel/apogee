@@ -23,6 +23,15 @@ def default_parameter_values(params=None):
 
 
 def _parameter_value(spec, value):
+    if spec.value_type == "bool":
+        if isinstance(value, bool):
+            return value
+        normalized = str(value).strip().lower()
+        if normalized in ("true", "1"):
+            return True
+        if normalized in ("false", "0"):
+            return False
+        raise ValueError(f"{spec.path} must be true or false.")
     if spec.value_type == "string":
         return str(value).strip()
     if spec.value_type == "int":
@@ -127,7 +136,7 @@ def decode_scenario_definition(text):
         parameters = parameters.copy()
         processing_suffixes = (".radar.pulse_num", ".radar.range_window", ".radar.doppler_window")
         for path, value in default_parameter_values(params).items():
-            if (path.endswith((".radar.doppler_zero_pad_factor", ".initial_pursuit.guidance_gain")) or
+            if (path.endswith((".active", ".radar.doppler_zero_pad_factor", ".initial_pursuit.guidance_gain")) or
                     scenario["version"] == 1 and path.endswith(processing_suffixes)):
                 parameters.setdefault(path, value)
     return params, validated_parameter_values(parameters, params)

@@ -123,7 +123,8 @@ def test_scenario_save_load_preserves_text_and_builds_parameters(
     params = create_params_from_text(_entry_values(window))
     for spec in PARAMETER_SPECS:
         value = saved_values[spec.path]
-        expected = value if spec.value_type == "string" else float(value)
+        expected = (value if spec.value_type == "string" else
+                    value.strip().lower() in ("true", "1") if spec.value_type == "bool" else float(value))
         assert parameter_window.apogee.get_parameter(params, spec.path) == expected
     window.entries[paths[0]].setText("42")
     assert window.status.text() == "Parameters modified"

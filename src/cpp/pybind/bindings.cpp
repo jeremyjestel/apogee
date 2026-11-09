@@ -27,6 +27,7 @@ namespace apogee
 		template <typename Value> constexpr const char *parameter_value_type()
 		{
 			if constexpr (std::is_same_v<Value, std::string>) return "string";
+			else if constexpr (std::is_same_v<Value, bool>) return "bool";
 			else if constexpr (std::is_integral_v<Value>) return "int";
 			else return "float";
 		}
@@ -264,6 +265,7 @@ namespace apogee
 			.def_readwrite("display_name", &EntityDefinition::display_name)
 			.def_readwrite("type", &EntityDefinition::type)
 			.def_readwrite("team", &EntityDefinition::team)
+			.def_readwrite("active", &EntityDefinition::active)
 			.def_readwrite("initial_kinematics", &EntityDefinition::initial_kinematics)
 			.def_property_readonly(
 				"ground",

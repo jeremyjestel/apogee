@@ -11,6 +11,11 @@ namespace apogee
 		for (auto &entity : entities)
 		{
 			auto &control = entity.controls;
+			if (!entity.active)
+			{
+				control.accel_actual.setZero();
+				continue;
+			}
 			const double alpha = control.time_constant_s > 0.0 ? -std::expm1(-dt_s / control.time_constant_s) : 1.0;
 			control.accel_actual += alpha * (entity.guidance.accel_command - control.accel_actual);
 		}

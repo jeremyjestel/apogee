@@ -17,6 +17,28 @@ APOGEE is a C++ and Python missile-defense simulation for modeling interception 
 - Added radar analysis for signal-to-noise ratio, range-Doppler maps, and radar-state metrics.
 - Added automated tests for the parameter interface and analysis visualizations.
 
+## Entity activity
+
+Every entity has `active = true` by default. Set its **Active** parameter to `false`
+in the parameter window to start it disabled. Scenario save/load preserves this
+setting; older scenarios default to active.
+
+In Python, set `params.entity("red_missile").active = False`, or use
+`apogee.set_parameter(params, "red_missile.active", False)` before running.
+
+In C++ simulation or playground code, use `entities[index].active = false` when
+your collision, damage, or disable logic decides to deactivate an entity. Set it
+back to `true` to resume updates. The entry stays in the entity vector, so target
+indices remain valid. Inactive entities freeze their kinematic state, clear their
+guidance/control outputs on the next system update, and skip sensor processing.
+Radar omits inactive targets, and guidance ignores inactive selected targets.
+The `entity/active` history records changes as 1 (active) or 0 (inactive).
+
+This flag represents both destroyed and disabled; it does not automatically
+detect collisions or distinguish the reason an entity became inactive. Direct
+model calls such as `prop_nav()` still evaluate their inputs; the entity systems
+enforce activity checks.
+
 ## Planned
 
 - Determine whether each interceptor engagement succeeds and explain the main contributing factors.

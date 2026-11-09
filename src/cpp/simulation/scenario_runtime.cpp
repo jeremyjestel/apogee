@@ -18,6 +18,7 @@ namespace apogee
 				.display_name = definition.display_name,
 				.type = definition.type,
 				.team = definition.team,
+				.active = definition.active,
 				.kinematics = definition.ground		 ? definition.ground->initial_kinematics()
 							  : definition.satellite ? definition.satellite->initial_kinematics()
 							  : definition.initial_pursuit

@@ -70,6 +70,15 @@ def test_team_and_type_are_independent_and_each_entity_has_its_own_parameters(bu
     assert builder.entity_cards["blue_radar"].type_combo.currentText() == "radar"
 
 
+def test_every_entity_card_has_an_active_parameter(builder):
+    for entity in builder.params.entities:
+        path = f"{entity.key}.active"
+        assert builder.entries[path].text() == "True"
+        builder.entries[path].setText("false")
+    params = create_params_from_text(builder._entry_values(), builder.params)
+    assert all(entity.active is False for entity in params.entities)
+
+
 def test_only_missiles_and_interceptors_offer_target_selection_with_defaults(builder):
     for entity in builder.params.entities:
         card = builder.entity_cards[entity.key]

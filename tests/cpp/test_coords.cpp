@@ -5,6 +5,7 @@
 #include <string>
 
 #include "math/coords.hpp"
+#include "math/geometry/los_occluded.hpp"
 
 namespace
 {
@@ -36,6 +37,24 @@ namespace
 			rejected = true;
 		}
 		check(rejected, message);
+	}
+
+	void test_line_of_sight()
+	{
+		const double radius = constants::earth_radius_m;
+		const Vec3 elevated{ radius + 100'000.0, 0.0, 0.0 };
+		check(!has_line_of_sight(elevated, -elevated),
+			"Earth must block entities on opposite sides of the globe.");
+		check(!has_line_of_sight(elevated, Vec3{ 0.0, radius + 100'000.0, 0.0 }),
+			"Earth must block widely separated low-altitude entities.");
+		check(has_line_of_sight(elevated, Vec3{ radius + 100'000.0, 50'000.0, 0.0 }),
+			"Nearby elevated entities must see each other.");
+		check(has_line_of_sight(Vec3{ radius, 0.0, 0.0 }, elevated) &&
+			has_line_of_sight(elevated, Vec3{ radius, 0.0, 0.0 }),
+			"An outward sightline from the surface must be clear in either direction.");
+		check(has_line_of_sight(elevated, elevated) &&
+			!has_line_of_sight(Vec3::Zero(), Vec3::Zero()),
+			"Coincident positions must be handled without dividing by zero.");
 	}
 
 	void test_local_frames()
@@ -221,6 +240,7 @@ int main()
 {
 	try
 	{
+		test_line_of_sight();
 		test_local_frames();
 		test_radar_coordinates();
 		test_body_frames();

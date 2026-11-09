@@ -17,6 +17,7 @@ namespace apogee
 		std::string display_name;
 		std::string type;
 		std::string team;
+		bool active = true;
 		KinematicStateECI initial_kinematics;
 		MotionType motion_type = MotionType::FreeFlight;
 		double mass = 1.0;
@@ -34,7 +35,8 @@ namespace apogee
 		// Entity-wide editable values are exposed through the same descriptor mechanism.
 		static constexpr auto fields()
 		{
-			return std::tuple{ parameter("radar_signature_dbsm",
+			return std::tuple{ parameter("active", &EntityDefinition::active, "Active", ""),
+				parameter("radar_signature_dbsm",
 				&EntityDefinition::radar_signature_dbsm,
 				"Radar signature",
 				"dBsm") };

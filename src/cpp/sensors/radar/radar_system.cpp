@@ -11,6 +11,11 @@ namespace apogee
 	void radar_system(std::vector<Entity> &entities, std::mt19937& rng)
 	{
         for (auto& entity : entities){
+			if (!entity.active)
+			{
+				for (auto &radar : entity.radars) radar.targets.clear();
+				continue;
+			}
 			for (auto& radar : entity.radars){
 				radar.targets.clear();
 				const RadarParams& params = radar.params;
@@ -24,7 +29,7 @@ namespace apogee
 				{radar.pointing_vec = entity.kinematics.pos_m;}
 				else {radar.pointing_vec = entity.kinematics.vel_mps;}
         		for (auto& target : entities){
-					if (target.id == entity.id ||
+					if (!target.active || target.id == entity.id ||
 						(target.kinematics.pos_m - entity.kinematics.pos_m).squaredNorm() == 0.0) {
 						continue;
 					}

@@ -10,16 +10,12 @@ namespace apogee {
         const Vec3& pos_b
     )
     {
-        Vec3 d = pos_b - pos_a;
-        int t = -1 * pos_a.dot(pos_b) / std::pow(d.norm(), 2);
-        int t_clamped = std::clamp(t, 0, 1);
-
-        Vec3 minima = pos_a + d * t;
-
-        if (minima.norm() > constants::earth_radius_m) {
-            return true;
-        }
-        return false;
+        const Vec3 d = pos_b - pos_a;
+        const double distance_squared = d.squaredNorm();
+        const double t = distance_squared > 0.0
+            ? std::clamp(-pos_a.dot(d) / distance_squared, 0.0, 1.0) : 0.0;
+        const Vec3 closest = pos_a + d * t;
+        return closest.squaredNorm() >= constants::earth_radius_m * constants::earth_radius_m;
         
     }
 

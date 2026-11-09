@@ -19,6 +19,7 @@ namespace apogee
 		std::string display_name;
 		std::string type;
 		std::string team;
+		bool active = true;
 		KinematicStateECI kinematics;
 		MotionType motion_type = MotionType::FreeFlight;
 		double mass = 1.0;
@@ -36,6 +37,7 @@ namespace apogee
 				data_field("display_name", &Entity::display_name, "Display name"),
 				data_field("type", &Entity::type, "Type"),
 				data_field("team", &Entity::team, "Team"),
+				data_field("active", &Entity::active, "Active"),
 				data_field("kinematics", &Entity::kinematics, "Kinematics"),
 				data_field("motion_type", &Entity::motion_type, "Motion type"),
 				data_field("mass", &Entity::mass, "Mass", "kg"),
