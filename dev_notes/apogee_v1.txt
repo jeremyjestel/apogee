@@ -1,0 +1,19 @@
+Apogee V1 Features To Do List
+
+Features:
+Complete the EKF
+Complete an association algorithm
+Connect radar detections into both of those. 
+Comment every script to ensure understanding
+One default scenario that shows all of the base capabilities
+Check missile guidance algorithm
+Remove all the unnecessary plots
+Add any interesting plots for performance analysis
+Add a win condition to make it wargame like
+
+Wrapping Up:
+Professional README that points out each of these base capabilities
+Good pictures for each
+A how to use guide for user to clone and run, then ensure its that easy
+Final V1 Block Diagram in architecture professional slideshow
+

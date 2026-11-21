@@ -44,6 +44,17 @@ namespace apogee
         }
         // Preserve complex amplitudes and unnormalized matched-filter/FFT gain.
         // The velocity view uses the same bins with v = f_D * wavelength / 2.
+
+        // CFAR
+        // Create kernel with radar.params.guard_cells and radar.params.train_cells 
+        // 2d Convolve the kernel with the rvmap
+        // Compute CFAR threshold
+        // Create mask that captures hte values > threshold
+        // Place those points in a detections list
+
+        // Detections will be associated and tracked in estimation
+        
+
         radar.state.range_doppler_map = rd_map;
         radar.state.range_velocity_map = std::move(rd_map);
     }
