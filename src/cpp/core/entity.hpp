@@ -5,6 +5,7 @@
 
 #include "controls/control_state.hpp"
 #include "core/data_fields.hpp"
+#include "estimation/belief_state.hpp"
 #include "guidance/guidance_state.hpp"
 #include "motion/kinematic_state.hpp"
 #include "sensors/radar/radar_component.hpp"
@@ -26,6 +27,8 @@ namespace apogee
 		double drag_coeff = 0.0;
 		double area_m2 = 0.0;
 		std::vector<RadarComponent> radars;
+		// All onboard sensors feed this entity's shared estimator and tracks.
+		BeliefState belief;
 		GuidanceState guidance;
 		ControlState controls;
 		double radar_signature_dbsm = 0.0;
@@ -46,6 +49,7 @@ namespace apogee
 				data_field("drag_coeff", &Entity::drag_coeff, "Drag coefficient"),
 				data_field("area_m2", &Entity::area_m2, "Area", "m^2"),
 				data_field("radars", &Entity::radars, "Radars"),
+				data_field("belief", &Entity::belief, "Belief"),
 				data_field("guidance", &Entity::guidance, "Guidance"),
 				data_field("controls", &Entity::controls, "Controls"),
 				data_field("radar_signature_dbsm", &Entity::radar_signature_dbsm, "Radar signature", "dBsm"),

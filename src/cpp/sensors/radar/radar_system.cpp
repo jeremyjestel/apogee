@@ -50,7 +50,8 @@ namespace apogee
 				generate_returns(entity.kinematics, radar, radar.targets, rng);
 				process_returns(radar);
 				// detect_targets(radar); // gating? does this happen else where? mnight want association to be its own subsystem or subset of tracking
-				// provide_measurements(radar); // entity.measurements so tracker subsystem can access that for sensor fusion, probably will do separate trackers for each sensor but eventually a combiner
+				// TODO: publish detections to entity.belief.pending_detections with this
+				// radar's identity, timestamp, pose and covariance. Tracking is entity-owned.
 				// state.last_update_s = sim_time;
 
 

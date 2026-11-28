@@ -48,7 +48,7 @@ namespace apogee
 			const double sim_time_s = static_cast<double>(step) * dt_s;
 
 			sense(entities, dt_s, rng);
-			// estimate(entities);
+			// estimate(entities, sim_time_s); // Enable after detection/tracking is implemented.
 			guidance_commands(entities, rng);
 			controls_update(entities, dt_s);
 			logger.log(entities, sim_time_s);

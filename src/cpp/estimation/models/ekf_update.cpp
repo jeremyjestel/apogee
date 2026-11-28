@@ -1,9 +1,9 @@
-#include "motion/models/gravity.hpp"
-#include "math/constants.hpp"
+#include "estimation/models/ekf_update.hpp"
 
 namespace apogee
 {
-	Vec3 ekf(Vec6 measurement, double time)
+	EkfUpdateStatus update_track([[maybe_unused]] EkfState &track,
+		[[maybe_unused]] const Detection &detection)
 	{
 		/*
 		initialize state x and covariance P and measurement z outside this
@@ -12,6 +12,7 @@ namespace apogee
 		That is how you can convert an xyz variance to rae without losing information, or minimally */
 
 
+		// Prediction belongs to the shared estimator before this correction.
         /*State prediction
 		xhat = f(x, del_t) propagate motion in state space*/
 
@@ -24,8 +25,8 @@ namespace apogee
 		P = F P FT + Q Covariance in motion frame with process noise in state space*/
 
 
-		/*Prediction converted to radar coords
-		zhat = h(xhat) conversion state space to measurement space*/
+		/*Prediction converted to this detection's measurement space
+		zhat = h(xhat) using the sensor pose and detection.kind*/
 
 
 		/*Measurement Jacobian
@@ -37,7 +38,8 @@ namespace apogee
 
 
 		/*Innovation Covariance
-		S = H P HT + R Expected covariance in measurement space*/
+		S = H P HT + R Expected covariance in measurement space.
+		R is detection.covariance, with dimensions matching detection.value.*/
 
 
 		/*Kalman Gain
@@ -51,7 +53,9 @@ namespace apogee
 		/*Covariance Correction
 		P = (I - KH) P ( I - KH)T + K R KT Have to put P in terms of Kalman in state space*/
 
-			
+		// TODO: implement correction using the appropriate h/H and this detection's R.
+		// Do not report a successful correction or overwrite state in the stub.
+		return EkfUpdateStatus::NotImplemented;
 	}
 
 } // namespace apogee
